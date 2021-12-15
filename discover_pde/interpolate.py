@@ -6,7 +6,7 @@ import numpy as np
 np.random.seed(0)
 
 
-def estimate_fields(observed_grid, observed_dataset, integration_grid, seed=0):
+def estimate_fields(observed_grid, observed_dataset, full_grid, seed=0):
     
     D = observed_dataset.shape[0] # number of samples
     N = observed_dataset.shape[1] # number of dimensions
@@ -21,14 +21,14 @@ def estimate_fields(observed_grid, observed_dataset, integration_grid, seed=0):
     samples_list = []
     for d in range(D):
 
-        U_est = np.zeros([N,*integration_grid.shape])
+        U_est = np.zeros([N,*full_grid.shape])
     
         for j in range(N):
 
             u_obs_j = observed_dataset[d][j].flatten()
             gpr.fit(observed_grid.as_covariates(), u_obs_j)
-            u_pred_j = gpr.predict(integration_grid.as_covariates())
-            u_pred_j = integration_grid.from_labels_to_grid(u_pred_j)
+            u_pred_j = gpr.predict(full_grid.as_covariates())
+            u_pred_j = full_grid.from_labels_to_grid(u_pred_j)
             U_est[j] = u_pred_j
 
         samples_list.append(U_est)

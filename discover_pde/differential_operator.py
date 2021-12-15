@@ -1,10 +1,14 @@
 import numpy as np
 from math import comb
 
+TOL = 0.001
+
 def _num_combi(a,b):
     if b < 1 or a+b < 1:
         return 0
     return comb(a+b-1,b-1)
+
+
 
 class Partial():
     def __init__(self,  order_list):
@@ -26,6 +30,35 @@ class Partial():
                 index += _num_combi(j, self.dimension-i-1)
             curr_order -= o
         return index
+
+    def next_partial(self):
+        new_order_list = list(self.order_list)
+        if np.sum(np.array(self.order_list) == 0) == self.dimension:
+            return None # there is only one partial of order 0
+        else:
+            last_non_zero_index = np.max(np.nonzero(self.order_list))
+            last_non_zero = self.order_list[last_non_zero_index]
+            if last_non_zero_index == len(self.order_list) - 1:
+                # If the last non-zero element is at the end
+                if last_non_zero == self.order:
+                    # If it is the last possible partial
+                    return None
+                else:
+                    second_last_non_zero_index = np.max(np.nonzero(self.order_list[:-1]))
+                    new_order_list[second_last_non_zero_index] -= 1
+                    new_order_list[last_non_zero_index] = 0
+                    new_order_list[second_last_non_zero_index+1] = last_non_zero + 1
+            else:
+                # If the last non-zero element is NOT at the end
+                if last_non_zero == 1:
+                    new_order_list[last_non_zero_index] = 0
+                    new_order_list[last_non_zero_index+1] = 1
+                else:
+                    new_order_list[last_non_zero_index] -= 1
+                    new_order_list[last_non_zero_index+1] = 1
+            return Partial(new_order_list)
+
+
 
 
 class LinearOperator():
@@ -65,12 +98,35 @@ class LinearOperator():
     
 
     def from_vector(vector, dimension, order):
-        # TODO: implement
-        pass
+        index = 0
+        partials = []
+        coeffs = []
+        for n in range(order+1):
+            partial = Partial([n]+([0]*(dimension-1)))
+            for i in range(_num_combi(n,dimension)):
+                if np.abs(vector[index]) > TOL:
+                    partials.append(partial)
+                    coeffs.append(vector[index])
+                partial = partial.next_partial()
+                index += 1 
+
+        return LinearOperator(coeffs, partials)
+
+        
 
 
 
+# p = Partial([3,0,0,0])
+# for i in range(20):
+#     if p == None:
+#         print("None")
+#         break
+#     print(p)
+#     p = p.next_partial()
 
-
-
-
+# L = LinearOperator([1,-2,3,5,-6],[Partial([0,1,2,0]), Partial([3,0,0,0]),Partial([1,1,1,0]),Partial([0,0,0,3]),Partial([0,0,1,2])])
+# vector = L.vectorize()
+# print(L)
+# print(vector)
+# Q = LinearOperator.from_vector(vector,4,3)
+# print(Q) 
