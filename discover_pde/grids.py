@@ -41,6 +41,9 @@ class EquiPartGrid:
         else:
             return y.reshape(self.shape)
 
+    def for_integration(self):
+        return np.ones(self.shape) * np.prod(self.widths) / (self.samples_per_dim ** self.num_dims)
+
 
 
 

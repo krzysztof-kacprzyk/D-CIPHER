@@ -61,7 +61,8 @@ class FourierSine2D(BasisFunction):
     
     def get_tensor(self, indexes, grid, partial=None):
 
-        self._verify(indexes, grid, partial)
+        x = grid.by_axis()
+        self._verify(indexes, x, partial)
 
         m = indexes[0]
         n = indexes[1]
@@ -69,14 +70,14 @@ class FourierSine2D(BasisFunction):
         norm_constant = 2/np.sqrt(self.a * self.b)
         
         if partial == None:
-            return np.sin((np.pi * m * grid[0])/np.sqrt(self.a)) * np.sin((np.pi * n * grid[1])/np.sqrt(self.b))
+            return np.sin((np.pi * m * x[0])/np.sqrt(self.a)) * np.sin((np.pi * n * x[1])/np.sqrt(self.b))
         else:
             if partial.order_list == [0,0]:
-                return norm_constant * np.sin((np.pi * m * grid[0])/np.sqrt(self.a)) * np.sin((np.pi * n * grid[1])/np.sqrt(self.b))
+                return norm_constant * np.sin((np.pi * m * x[0])/np.sqrt(self.a)) * np.sin((np.pi * n * x[1])/np.sqrt(self.b))
             elif partial.order_list == [1,0]:
-                return norm_constant * (np.pi * m / self.a) * np.cos((np.pi * m * grid[0])/np.sqrt(self.a)) * np.sin((np.pi * n * grid[1])/np.sqrt(self.b))
+                return norm_constant * (np.pi * m / self.a) * np.cos((np.pi * m * x[0])/np.sqrt(self.a)) * np.sin((np.pi * n * x[1])/np.sqrt(self.b))
             elif partial.order_list == [0,1]:
-                 return norm_constant * np.sin((np.pi * m * grid[0])/np.sqrt(self.a)) * (np.pi * n / self.b) * np.cos((np.pi * n * grid[1])/np.sqrt(self.b))
+                 return norm_constant * np.sin((np.pi * m * x[0])/np.sqrt(self.a)) * (np.pi * n / self.b) * np.cos((np.pi * n * x[1])/np.sqrt(self.b))
 
 
 

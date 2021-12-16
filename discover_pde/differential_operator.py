@@ -98,19 +98,35 @@ class LinearOperator():
     
 
     def from_vector(vector, dimension, order):
-        index = 0
+        all_partials = LinearOperator.get_all_partials(dimension, order)
         partials = []
         coeffs = []
+        for i in range(len(all_partials)):
+            if np.abs(vector[i]) > TOL:
+                partials.append(all_partials[i])
+                coeffs.append(vector[i])
+
+        return LinearOperator(coeffs, partials)
+
+    def get_adjoint(self):
+        #TODO: implement
+        pass
+
+    def get_vector_length(dimension, order):
+        return sum([_num_combi(n,dimension) for n in range(order+1)])
+
+    def get_all_partials(dimension, order):
+        partials = []
         for n in range(order+1):
             partial = Partial([n]+([0]*(dimension-1)))
             for i in range(_num_combi(n,dimension)):
-                if np.abs(vector[index]) > TOL:
-                    partials.append(partial)
-                    coeffs.append(vector[index])
+                partials.append(partial)
                 partial = partial.next_partial()
-                index += 1 
+        return partials
 
-        return LinearOperator(coeffs, partials)
+
+
+    
 
         
 
