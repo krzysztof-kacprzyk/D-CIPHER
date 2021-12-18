@@ -1,7 +1,7 @@
 from torch import full
 from .equations import get_pdes
 from .grids import EquiPartGrid
-from .generator import generate_fields
+from .generator import generate_fields, Conditions
 from .interpolate import estimate_fields
 from .basis import FourierSine2D
 from .optimize_operator import LinearOperatorFinder
@@ -23,7 +23,10 @@ full_grid_samples = 1000
 observed_grid = EquiPartGrid(widths, frequency_per_dim)
 full_grid = EquiPartGrid(widths, full_grid_samples)
 
-observed_dataset = generate_fields(pdes.get_solution([lambda t: np.sin(t*np.pi)]), observed_grid, num_samples, noise_ratio, seed=SEED)
+conditions = Conditions(1)
+conditions.add_sample([lambda t: np.sin(t*np.pi)])
+
+observed_dataset = generate_fields(pdes, conditions, observed_grid, noise_ratio, seed=SEED)
 
 print(observed_dataset.shape)
 print(observed_dataset)

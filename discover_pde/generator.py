@@ -1,18 +1,42 @@
 import numpy as np
 
 
-def generate_fields(functions, grid, num_samples, noise_ratio, seed=0):
+class Conditions:
+     
+    def __init__(self, num_conditions_per_sample):
+        self.num_condtions_per_sample = num_conditions_per_sample
+        self.conditions = []
+
+    def add_sample(self, functions):
+        if len(functions) != self.num_condtions_per_sample:
+            raise ValueError("Incorrect number of condition functions")
+        else:
+            self.conditions.append(functions)
+
+    def get_num_samples(self):
+        return len(self.conditions)
+    
+    def get_condition_functions(self, index):
+        return self.conditions[index]
+    
+
+def generate_fields(pdes, conditions, grid, noise_ratio, seed=0):
     
     np.random.seed(seed)
 
     sample_list = []
 
+    num_samples = conditions.get_num_samples()
+
     for i in range(num_samples):
         
         observed_scalar_field_list = []
 
-        for f in functions:
-            raw_scalar_field = f(grid.by_axis())
+        field_functions = pdes.get_solution(conditions.get_condition_functions(i))
+
+        for field_function in field_functions:
+            
+            raw_scalar_field = field_function(grid.by_axis())
 
             signal = np.std(raw_scalar_field)
 

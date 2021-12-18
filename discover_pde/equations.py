@@ -29,6 +29,11 @@ class PDE(ABC):
     def N(self):
         pass
 
+    @property
+    @abstractmethod
+    def num_conditions(self):
+        pass
+
 
 
     @abstractmethod
@@ -59,6 +64,10 @@ class TestEquation1(PDE):
     @property
     def N(self):
         return  1
+
+    @property
+    def num_conditions(self):
+        return 1
     
     def get_expression(self):
         x0,x1 = symbols('x0,x1', real=True)
@@ -68,7 +77,7 @@ class TestEquation1(PDE):
         return [(L,g)]
 
     def get_solution(self, boundary_functions):
-        if len(boundary_functions) != 1:
+        if len(boundary_functions) != self.num_conditions:
             raise ValueError("Wrong number of boundary functions")
         h = boundary_functions[0]
         def func(x):

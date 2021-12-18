@@ -12,7 +12,7 @@ def _num_combi(a,b):
 
 class Partial():
     def __init__(self,  order_list):
-        self.order_list = order_list
+        self.order_list = list(order_list)
         self.dimension = len(order_list)
         self.order = sum(order_list)
 
@@ -115,6 +115,7 @@ class LinearOperator():
     def get_vector_length(dimension, order):
         return sum([_num_combi(n,dimension) for n in range(order+1)])
 
+    #TODO: this can be probably improved by changing next_partial for some recursive generating algorithm
     def get_all_partials(dimension, order):
         partials = []
         for n in range(order+1):
