@@ -22,10 +22,10 @@ class BasisFunction(ABC):
     def num_indexes(self):
         pass
 
-    def _verify(self, indexes, grid, partial=None):
+    def _verify(self, indexes, num_variables, partial=None):
 
         assert len(indexes) == self.num_indexes
-        assert grid.shape[0] == self.dimension
+        assert num_variables == self.dimension
         if partial != None:
             assert partial.dimension == self.dimension
             assert partial.order <= self.max_order
@@ -62,7 +62,7 @@ class FourierSine2D(BasisFunction):
     def get_tensor(self, indexes, grid, partial=None):
 
         x = grid.by_axis()
-        self._verify(indexes, x, partial)
+        self._verify(indexes, x.shape[0], partial)
 
         m = indexes[0]
         n = indexes[1]
