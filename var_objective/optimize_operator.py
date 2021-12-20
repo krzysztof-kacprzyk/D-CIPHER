@@ -35,7 +35,7 @@ class Model:
             square_loss = torch.pow(pred, 2.0).sum() 
         l1_loss = torch.norm(weights,1)
         min_loss = torch.min(torch.log(torch.pow(weights[self.num_lower_order:],2)+EPS))
-        print(f"Sq: {square_loss} | l1: {l1_loss} | min: {min_loss}")
+        # print(f"Sq: {square_loss} | l1: {l1_loss} | min: {min_loss}")
         return square_loss + self.alpha * l1_loss  - self.beta * min_loss
 
 
@@ -108,7 +108,7 @@ class VariationalWeightsFinder:
 
         # g_part_func should have shape (D,*self.full_grid.shape) or be None
 
-        if g_part_func == None:
+        if g_part_func is None:
             homogeneous = True
         else:
             homogeneous = False
@@ -164,7 +164,7 @@ class VariationalWeightsFinder:
         target = torch.tensor([0.0,1.0,-1.0])
         print(normalize(target))
         print(model.loss(target))
-        return prev_best_weights
+        return (prev_best_loss, prev_best_weights)
 
         
             
@@ -218,7 +218,7 @@ class MSEWeightsFinder:
 
         # g_part_func should have shape (D,*self.full_grid.shape) or be None
 
-        if g_part == None:
+        if g_part is None:
             homogeneous = True
         else:
             homogeneous = False
@@ -249,7 +249,7 @@ class MSEWeightsFinder:
 
         for i in range(self.num_epochs):
             loss = model.loss(weights)
-            print(f"Epoch {i+1} | Loss: {loss}")
+            # print(f"Epoch {i+1} | Loss: {loss}")
 
             if loss >= prev_best_loss:
                 epochs_no_improvement += 1
@@ -266,13 +266,13 @@ class MSEWeightsFinder:
             optimizer.step()
             optimizer.zero_grad()
 
-
+        
         print(f"Loss: {prev_best_loss}")        
         print(f"Weights: {prev_best_weights}")
-        target = torch.tensor([0.0,1.0,-1.0])
-        print(normalize(target))
-        print(model.loss(target))
-        return prev_best_weights
+        # target = torch.tensor([0.0,1.0,-1.0])
+        # print(normalize(target))
+        # print(model.loss(target))
+        return (prev_best_loss, prev_best_weights)
 
 
         

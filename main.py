@@ -1,5 +1,8 @@
 from tvregdiff.tvregdiff import TVRegDiff
 
+from gplearn.gplearn.fitness import make_fitness
+from gplearn.gplearn.genetic import SymbolicRegressor
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -65,7 +68,44 @@ observed_dataset = generate_fields(pdes, conditions, observed_grid, noise_ratio,
 
 mse_wf = MSEWeightsFinder(observed_dataset,0,observed_grid,2,1,NumpyDiff(),alpha=1.0,beta=0.0,optim_params={'lr':0.01},num_epochs=200)
 
-mse_wf.find_weights(g_part=None)
+# mse_wf.find_weights(g_part=None)
 
 # derivative_fields = all_derivatives(observed_dataset[0][0],observed_grid,2,1,NumpyDiff())
 # print(derivative_fields)
+
+#TODO: incorporate w somehow
+
+def grid_and_fields_to_covariates(grid_and_fields):
+
+    grid_and_fields = np.moveaxis(grid_and_fields,1,-1)
+    num_var = grid_and_fields.shape[-1]
+    return np.reshape(grid_and_fields,(-1,num_var))
+
+
+
+
+
+def _mse_fitness(y, y_pred, w):
+    if len(y_pred) == 2:
+        print("Test")
+        return 0.0
+    g_part = np.reshape(y_pred, ((mse_wf.D, *(mse_wf.grid.shape))))
+
+    loss, weights = mse_wf.find_weights(g_part)
+    return loss.item()
+
+X = grid_and_fields_to_covariates(mse_wf.grid_and_fields)
+fake_y = np.zeros(X.shape[0])
+
+print(X.shape)
+
+mse_fitness = make_fitness(_mse_fitness, greater_is_better=False)
+
+est = SymbolicRegressor(metric=mse_fitness, population_size=10)
+
+
+
+est.fit(X, fake_y)
+print(est._program)
+
+_mse_fitness(np.zeros(10), est.predict(X), np.zeros(10))
