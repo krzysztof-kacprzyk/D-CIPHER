@@ -1,4 +1,3 @@
-from torch import full
 from .equations import get_pdes
 from .grids import EquiPartGrid
 from .generator import generate_fields, Conditions
