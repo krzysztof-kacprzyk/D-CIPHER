@@ -70,14 +70,6 @@ class Partial():
                 return False
         return True
 
-   
-
-
-    
-
-
-
-
 
 class LinearOperator():
     def __init__(self, coeffs, partials):
@@ -115,13 +107,18 @@ class LinearOperator():
         return encoded
     
 
-    def from_vector(vector, dimension, order):
+    def from_vector(vector, dimension, order, zero_partial=True):
+    
+        if zero_partial:
+            offset = 0
+        else:
+            offset = 1
         all_partials = LinearOperator.get_all_partials(dimension, order)
         partials = []
         coeffs = []
-        for i in range(len(all_partials)):
+        for i in range(0,len(all_partials)-offset):
             if np.abs(vector[i]) > TOL:
-                partials.append(all_partials[i])
+                partials.append(all_partials[i+offset])
                 coeffs.append(vector[i])
 
         return LinearOperator(coeffs, partials)
@@ -142,65 +139,6 @@ class LinearOperator():
                 partials.append(partial)
                 partial = partial.next_partial()
         return partials
-
-
-class DerivativeEngine(ABC):
-
-    def __init__(self, params):
-        self.params = params
-
-    @abstractmethod
-    def differentiate(self, scalar_field, grid, variable):
-        pass
-
- 
-def all_derivatives(scalar_field, grid, dimension, order, engine):
-
-
-    if list(scalar_field.shape) != list(grid.shape):
-        raise ValueError("Scalar field and grid have different shapes")
-
-    if dimension != grid.num_dims:
-        raise ValueError("Grid has incorrect dimension")
-
-    derivative_fields = np.zeros((LinearOperator.get_vector_length(dimension,order),*grid.shape))
-
-    derivative_fields[0] = scalar_field
-    counter = 1
-    for n in range(1,order+1):
-        partial = Partial([n]+([0]*(dimension-1)))
-        for i in range(_num_combi(n,dimension)):
-            new_order_list = partial.order_list[:]
-            variable = 0
-            for j in range(partial.dimension):
-                if new_order_list[j] > 0:
-                    new_order_list[j] -= 1
-                    variable = j
-                    break
-            index = Partial(new_order_list).get_global_index()
-            derivative_fields[counter] = engine.differentiate(derivative_fields[index],grid,variable)
-            
-            partial = partial.next_partial()
-            counter += 1
-
-    return derivative_fields
-
-
-class NumpyDiff(DerivativeEngine):
-
-    def __init__(self):
-        super().__init__(None)
-
-    def differentiate(self, scalar_field, grid, variable):
-        coordinates = grid.axes[variable]
-        return np.gradient(scalar_field, coordinates, axis=variable)
-        
-
-    
-
-        
-
-
 
 # p = Partial([3,0,0,0])
 # for i in range(20):

@@ -13,6 +13,7 @@ class EquiPartGrid:
 
         self.grid = np.stack(np.meshgrid(*self.axes, indexing='ij'), axis=0)
         
+        self.dx = [width / samples_per_dim for width in widths]
         # if self.num_dims == 1:
         #     self.grid = np.mgrid[0:widths[0]:samples_per_dim*1j]
         # elif self.num_dims == 2:

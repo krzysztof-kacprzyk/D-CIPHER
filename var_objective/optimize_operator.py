@@ -1,7 +1,8 @@
 import numpy as np
 import torch
 from itertools import product
-from .differential_operator import LinearOperator, all_derivatives
+from .differential_operator import LinearOperator
+from .derivative_estimators import all_derivatives
 
 EPS = torch.tensor(0.0001)
 INF = torch.tensor(1000000)
