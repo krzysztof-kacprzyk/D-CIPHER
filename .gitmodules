@@ -4,3 +4,6 @@
 [submodule "tvregdiff"]
 	path = tvregdiff
 	url = git@github.com:krzysztof-kacprzyk/tvregdiff.git
+[submodule "derivative"]
+	path = derivative
+	url = git@github.com:krzysztof-kacprzyk/derivative.git
