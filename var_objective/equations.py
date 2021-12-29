@@ -1,11 +1,14 @@
 from .differential_operator import LinearOperator, Partial
-from sympy import Symbol, Function, symbols
+from sympy import Symbol, Function, symbols, sin
 from abc import ABC, abstractmethod
+import numpy as np
 
 def get_pdes(name, parameters=None):
     
     if name == "TestEquation1":
         return TestEquation1()
+    elif name == "TestEquation2":
+        return TestEquation2()
     elif name == "Laplace2D":
         return Laplace2D()
 
@@ -86,6 +89,45 @@ class TestEquation1(PDE):
         return [func]
         
 
+class TestEquation2(PDE):
+    
+    def __init__(self):
+        super().__init__(None)
+    
+    @property
+    def name(self):
+        return "TestEquation2"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 1
+    
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        g = Function('g')
+        L = LinearOperator([1.0,2.0],[Partial([1,0]),Partial([0,1])])
+        g = 0.0*x0 + sin(x1)
+        return [(L,g)]
+
+    def get_solution(self, boundary_functions):
+        """
+            boundary_function h specifies the boundary condition u0(t,0) = h(t)
+        """
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        h = boundary_functions[0]
+        def func(x):
+            return -0.5 * np.cos(x[1]) + h(x[0] - x[1]/2) + 0.5
+
+        return [func]
 
 
 class Laplace2D(PDE):
