@@ -41,7 +41,7 @@ if __name__ == '__main__':
     parser.add_argument('frequency_per_dim', type=int, help='Frequency per dimension of generated data')
     parser.add_argument('noise_ratio', type=float, help='Noise ration for data generation')
     parser.add_argument('conditions_set', help='Conditions set name from conditions.py')
-    parser.add_argument('diff_engine', choices=['numpy', 'tv'])
+    parser.add_argument('diff_engine', choices=['numpy', 'tv', 'trend', 'spline', 'finite'])
     parser.add_argument('num_trials', type=int, help='Number of trials')
     parser.add_argument('--seed', type=int, default=0)
 

@@ -2,14 +2,20 @@ import numpy as np
 from math import comb
 from abc import ABC, abstractmethod
 from .differential_operator import Partial, _num_combi, LinearOperator
-from .libs import TVRegDiff
-from .config import get_tvdiff_params
+from .libs import TVRegDiff, dxdt
+from .config import get_tvdiff_params, get_trenddiff_params, get_splinediff_params, get_finitediff_params
 
 def get_diff_engine(name):
     if name == 'numpy':
         return NumpyDiff()
     elif name == 'tv':
         return TVDiff(get_tvdiff_params())
+    elif name == 'trend':
+        return TrendDiff(get_trenddiff_params())
+    elif name == 'spline':
+        return SplineDiff(get_splinediff_params())
+    elif name == 'finite':
+        return FiniteDiff(get_finitediff_params())
 
 class DerivativeEngine(ABC):
 
@@ -78,3 +84,27 @@ class TVDiff(DerivativeEngine):
         derivative_field = np.reshape(derivatives, org_shape)
         return np.moveaxis(derivative_field, -1, variable)
 
+class TrendDiff(DerivativeEngine):
+    def __init__(self, params):
+        super().__init__(params)
+    
+    def differentiate(self, scalar_field, grid, variable):
+        t = grid.axes[variable]
+        return dxdt(scalar_field, t, kind='trend_filtered', axis=variable, **self.params)
+
+
+class SplineDiff(DerivativeEngine):
+    def __init__(self, params):
+        super().__init__(params)
+
+    def differentiate(self, scalar_field, grid, variable):
+        t = grid.axes[variable]
+        return dxdt(scalar_field, t, kind='spline', axis=variable, **self.params)
+
+class FiniteDiff(DerivativeEngine):
+    def __init__(self, params):
+        super().__init__(params)
+
+    def differentiate(self, scalar_field, grid, variable):
+        t = grid.axes[variable]
+        return dxdt(scalar_field, t, kind='finite_difference', axis=variable, **self.params)
