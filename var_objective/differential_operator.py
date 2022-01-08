@@ -1,6 +1,6 @@
 from types import new_class
 import numpy as np
-from math import comb
+from scipy.special import comb
 from abc import ABC, abstractmethod
 
 TOL = 0.001
