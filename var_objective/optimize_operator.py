@@ -115,16 +115,16 @@ class VariationalWeightsFinder:
           
         if homogeneous:
             g_integrals = np.zeros((self.D, self.S))
-        # else:
-        #     if from_covariates:
-        #         g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
-        #     assert g_part.shape == (self.D,*self.full_grid.shape)
+            # else:
+            #     if from_covariates:
+            #         g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
+            #     assert g_part.shape == (self.D,*self.full_grid.shape)
 
-        #     g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
-        #     assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
+            #     g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
+            #     assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
 
-        #     g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
-        #     assert g_integrals.shape == (self.D, self.S)
+            #     g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
+            #     assert g_integrals.shape == (self.D, self.S)
 
             integrals_tensor = torch.from_numpy(self.integrals[:,:,1:]) # shape: (D,S,J)
 

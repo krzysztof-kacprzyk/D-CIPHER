@@ -36,7 +36,7 @@ def generate_fields(pdes, conditions, grid, noise_ratio, seed=0):
 
         for field_function in field_functions:
             
-            raw_scalar_field = field_function(grid.by_axis())
+            raw_scalar_field = field_function(grid)
 
             signal = np.std(raw_scalar_field)
 

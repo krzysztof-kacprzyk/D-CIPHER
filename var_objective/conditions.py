@@ -27,6 +27,9 @@ def get_conditions_set(name):
         conditions = Conditions(1)
         conditions.add_sample([lambda t: np.sin(t)])
         conditions.add_sample([lambda t: np.power(t,2.0)])
+    elif name == 'SLM1':
+        conditions = Conditions(2)
+        conditions.add_sample([lambda x: 5*(-np.power(2*x-1,2)+1), lambda x: np.power(x-1,2)])
     
     return conditions
         

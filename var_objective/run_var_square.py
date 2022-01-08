@@ -73,6 +73,37 @@ if __name__ == '__main__':
     end = time.time()
     print(f"Fields estimated in {end-start} seconds")
 
+    # a = full_dataset[0,0].shape[0]
+    # b = full_dataset[0,0].shape[1]
+
+
+    # from matplotlib import pyplot as plt
+    # from matplotlib import animation
+
+    # # First set up the figure, the axis, and the plot element we want to animate
+    # fig = plt.figure()
+    # ax = plt.axes(xlim=(0, 1.0), ylim=(0.0,10.0))
+    # line, = ax.plot([], [], lw=2)
+
+    # # initialization function: plot the background of each frame
+    # def init():
+    #     line.set_data([], [])
+    #     return line,
+
+    # # animation function.  This is called sequentially
+    # def animate(i):
+        
+    #     line.set_data(np.linspace(0.0,2.0,b), full_dataset[0,0][i,:])
+    #     return line,
+
+    # # call the animator.  blit=True means only re-draw the parts that have changed.
+    # anim = animation.FuncAnimation(fig, animate, init_func=init,
+    #                             frames=a, interval=10, blit=True)
+
+    # plt.show()
+
+
+
     dimension = pdes.get_expression()[args.field_index][0].dimension
     order = pdes.get_expression()[args.field_index][0].order
 
@@ -108,6 +139,18 @@ if __name__ == '__main__':
     var_fitness = make_fitness(_var_fitness, greater_is_better=False)
 
     gp_params = get_gp_params()
+
+
+    loss2, weights2 = var_wf.find_weights(2*np.exp((X[:,1]-1))*X[:,2],from_covariates=True,normalize_g=False)
+
+    print(loss2, weights2)
+
+    loss3, weights3 = var_wf.find_weights(X[:,2],from_covariates=True,normalize_g=False)
+
+    print(loss3, weights3)
+
+
+
     est = SymbolicRegressor(metric=var_fitness, **gp_params ,verbose=1, random_state=args.seed)
 
     est.fit(X, fake_y)

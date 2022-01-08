@@ -13,9 +13,9 @@ def get_optim_params():
 def get_gp_params():
     dic = {
         'population_size': 1000,
-        'function_set':('add', 'sub', 'mul', 'div','sin'),
-        'generations':20,
-        'parsimony_coefficient':1.0
+        'function_set':('add', 'sub', 'mul', 'div','sin','exp'),
+        'generations':10,
+        # 'parsimony_coefficient':0.001
     }
     return dic
 

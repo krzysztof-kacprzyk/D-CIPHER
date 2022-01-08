@@ -1,5 +1,7 @@
+from multiprocessing import Value
 from .differential_operator import LinearOperator, Partial
-from sympy import Symbol, Function, symbols, sin
+from .population_models import SLM
+from sympy import Symbol, Function, symbols, sin, exp
 from abc import ABC, abstractmethod
 import numpy as np
 
@@ -11,6 +13,10 @@ def get_pdes(name, parameters=None):
         return TestEquation2()
     elif name == "Laplace2D":
         return Laplace2D()
+    elif name == "SLM1":
+        return SLM1()
+    else:
+        raise ValueError(f"Unknown equation: {name}")
 
 class PDE(ABC):
 
@@ -83,7 +89,8 @@ class TestEquation1(PDE):
         if len(boundary_functions) != self.num_conditions:
             raise ValueError("Wrong number of boundary functions")
         h = boundary_functions[0]
-        def func(x):
+        def func(grid):
+            x = grid.by_axis()
             return h(x[0] + x[1])
 
         return [func]
@@ -124,8 +131,68 @@ class TestEquation2(PDE):
         if len(boundary_functions) != self.num_conditions:
             raise ValueError("Wrong number of boundary functions")
         h = boundary_functions[0]
-        def func(x):
+        def func(grid):
+            x = grid.by_axis()
             return -0.5 * np.cos(x[1]) + h(x[0] - x[1]/2) + 0.5
+
+        return [func]
+
+
+class SLM1(PDE):
+    
+    def __init__(self):
+        super().__init__(None)
+    
+    @property
+    def name(self):
+        return "SLM1"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 2
+    
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g = Function('g')
+        L = LinearOperator([1.0,1.0],[Partial([1,0]),Partial([0,1])])
+        g = 2*exp(x1 - 1)*u0
+        return [(L,g)]
+
+    def get_solution(self, boundary_functions):
+        """
+            boundary_function h specifies the boundary condition u0(t,0) = h(t)
+        """
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        death_rate = lambda x: 2*np.exp((x-1))
+        birth_rate = boundary_functions[0]
+        initial_age_distribution = boundary_functions[1]
+
+        def func(grid):
+            assert grid.num_dims == 2
+            axes = grid.axes
+            widths = grid.widths
+            delta_t = 0.001
+            slm = SLM(death_rate,birth_rate,initial_age_distribution)
+            U = slm.solve_second_order(widths[0], delta_t, widths[1])
+            sol = np.zeros(grid.shape)
+            grid_trans = grid.as_grid()
+            for t, g_t in enumerate(grid_trans):
+                for a, g_t_a in enumerate(g_t):
+                    ind_t = int(g_t_a[0] / delta_t)
+                    ind_a = int(g_t_a[1] / delta_t)
+                    sol[t,a] = U[ind_t, ind_a]
+
+            return sol
 
         return [func]
 
