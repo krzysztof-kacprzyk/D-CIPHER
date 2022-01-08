@@ -1,5 +1,5 @@
 import numpy as np
-from math import comb
+from scipy.special import comb
 from abc import ABC, abstractmethod
 from .differential_operator import Partial, _num_combi, LinearOperator
 from .libs import TVRegDiff, dxdt
