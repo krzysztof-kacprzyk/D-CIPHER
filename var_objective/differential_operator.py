@@ -8,7 +8,7 @@ TOL = 0.001
 def _num_combi(a,b):
     if b < 1 or a+b < 1:
         return 0
-    return comb(a+b-1,b-1)
+    return comb(a+b-1,b-1, exact=True)
 
 
 
