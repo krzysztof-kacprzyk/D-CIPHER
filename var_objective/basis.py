@@ -1,5 +1,11 @@
 from abc import ABC, abstractmethod
 import numpy as np
+from scipy.interpolate import BSpline
+
+from var_objective.differential_operator import Partial
+
+from .grids import EquiPartGrid
+import matplotlib.pyplot as plt
 
 
 class BasisFunction(ABC):
@@ -31,11 +37,68 @@ class BasisFunction(ABC):
             assert partial.order <= self.max_order
     
     def get_tensor(self, indexes, grid, partial=None):
+
+
+
+
         pass
 
 
+class BSplineFreq2D(BasisFunction):
+
+    def __init__(self, widths, order):
+
+        assert len(widths) == 2
+
+        self.a = widths[0]
+        self.b = widths[1]
+
+        self.order = order
+
+    @property
+    def dimension(self):
+        return 2
+    
+    @property
+    def max_order(self):
+        return self.order
+    
+    @property
+    def num_indexes(self):
+        return 2
+    
+    def get_tensor(self, indexes, grid, partial=None):
+
+        x = grid.by_axis()
+        self._verify(indexes, x.shape[0], partial)
+
+        m = indexes[0]
+        n = indexes[1]
+
+        end1 = self.a / m
+        end2 = self.b / n
+
         
+        # We need order+1 because we want order-th derivative to be continuous
+        b1 = BSpline.basis_element(np.linspace(0, end1, self.order+1+2),extrapolate='periodic')
+        b2 = BSpline.basis_element(np.linspace(0, end2, self.order+1+2),extrapolate='periodic')
+
+        axes = grid.axes
+        x1 = axes[0]
+        x2 = axes[1]
+
+        if partial != None:
+
+            o1 = partial.order_list[0]
+            for i in range(o1):
+                b1 = b1.derivative()
+            
+            o2 = partial.order_list[1]
+            for i in range(o2):
+                b2 = b2.derivative()
         
+        return np.outer(b1(x1), b2(x2))
+
         
 
 class FourierSine2D(BasisFunction):
@@ -83,3 +146,20 @@ class FourierSine2D(BasisFunction):
 
 
     
+if __name__ == "__main__":
+
+    observed_grid = EquiPartGrid([1.0, 1.0], 500)
+
+
+    basis = BSplineFreq2D([1.0, 1.0], 2)
+    p1 = Partial([1,0])
+    field = basis.get_tensor([2,2], observed_grid, partial=p1)
+
+
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+
+    # Plot the surface.
+    surf = ax.plot_surface(observed_grid.by_axis()[0], observed_grid.by_axis()[1], field, linewidth=0, antialiased=False)
+
+
+    plt.show()
