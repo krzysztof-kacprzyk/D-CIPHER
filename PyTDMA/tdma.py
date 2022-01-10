@@ -1,5 +1,5 @@
 import numpy as np
-import _tdma
+from ._tdma import tdma as t
 
 
 def tdma(A, b):
@@ -17,5 +17,5 @@ def tdma(A, b):
     lower = np.hstack((0, np.diag(A, -1)))
     middle = np.diag(A).copy()
     upper = np.hstack((np.diag(A, 1), 0))
-    return np.asarray(_tdma.tdma(lower, middle, upper,
+    return np.asarray(t(lower, middle, upper,
                                  np.asarray(b).squeeze()))
