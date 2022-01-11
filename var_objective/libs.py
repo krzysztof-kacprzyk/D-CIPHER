@@ -7,3 +7,5 @@ from gplearn.gplearn.fitness import make_fitness
 from gplearn.gplearn.genetic import SymbolicRegressor
 from tvregdiff.tvregdiff import TVRegDiff
 from derivative.derivative.differentiation import dxdt
+
+from PyTDMA.tdma import tdma

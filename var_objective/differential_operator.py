@@ -3,7 +3,7 @@ import numpy as np
 from scipy.special import comb
 from abc import ABC, abstractmethod
 
-TOL = 0.001
+TOL = 0.0001
 
 def _num_combi(a,b):
     if b < 1 or a+b < 1:
@@ -124,8 +124,16 @@ class LinearOperator():
         return LinearOperator(coeffs, partials)
 
     def get_adjoint(self):
-        #TODO: implement
-        pass
+        new_coeffs = []
+        for i, coeff in enumerate(self.coeffs):
+            if self.partials[i].order % 2 == 0:
+                new_coeffs.append(coeff)
+            else:
+                new_coeffs.append(-coeff)
+        return LinearOperator(new_coeffs, self.partials)
+
+
+        
 
     def get_vector_length(dimension, order):
         return sum([_num_combi(n,dimension) for n in range(order+1)])

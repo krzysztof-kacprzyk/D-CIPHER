@@ -98,6 +98,15 @@ if __name__ == '__main__':
     var_fitness = make_fitness(_mse_fitness, greater_is_better=False)
 
     gp_params = get_gp_params()
+
+    loss2, weights2 = mse_wf.find_weights(4*np.sin(2*np.pi*X[:,1]),from_covariates=True,normalize_g=True)
+
+    print(loss2, weights2)
+
+    loss3, weights3 = mse_wf.find_weights(np.sin(-np.sin(2*X[:,1]-1) / 0.288),from_covariates=True,normalize_g=True)
+
+    print(loss3, weights3)
+
     est = SymbolicRegressor(metric=var_fitness, **gp_params ,verbose=1, random_state=args.seed)
 
     est.fit(X, fake_y)

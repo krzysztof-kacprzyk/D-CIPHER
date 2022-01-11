@@ -8,7 +8,7 @@ from .equations import get_pdes
 from .grids import EquiPartGrid
 from .generator import generate_fields
 from .interpolate import estimate_fields
-from .basis import FourierSine2D
+from .basis import BSplineFreq2D, Fake, FourierSine2D
 from .optimize_operator import VariationalWeightsFinder, normalize
 from .conditions import get_conditions_set
 from .config import get_optim_params, get_gp_params
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     parser.add_argument('noise_ratio', type=float, help='Noise ration for data generation')
     parser.add_argument('full_grid_samples', type=int, help='Frequency of the full grid')
     parser.add_argument('conditions_set', help='Conditions set name from conditions.py')
-    parser.add_argument('basis', choices=['fourier'])
+    parser.add_argument('basis', choices=['fourier','2spline2D','fake'])
     parser.add_argument('max_ind_basis', type=int, help='Maximum index for test functions. Number of used test functions is a square of this number')
     parser.add_argument('num_trials', type=int, help='Number of trials')
     parser.add_argument('--seed', type=int, default=0)
@@ -82,7 +82,7 @@ if __name__ == '__main__':
 
     # # First set up the figure, the axis, and the plot element we want to animate
     # fig = plt.figure()
-    # ax = plt.axes(xlim=(0, 1.0), ylim=(0.0,10.0))
+    # ax = plt.axes(xlim=(0, 1.0), ylim=(-5.0,5.0))
     # line, = ax.plot([], [], lw=2)
 
     # # initialization function: plot the background of each frame
@@ -93,7 +93,8 @@ if __name__ == '__main__':
     # # animation function.  This is called sequentially
     # def animate(i):
         
-    #     line.set_data(np.linspace(0.0,2.0,b), full_dataset[0,0][i,:])
+    #     line.set_data(np.linspace(0.0,1.0,b), full_dataset[0,0][i,:])
+    #     ax.set_title(f"Frame {i}")
     #     return line,
 
     # # call the animator.  blit=True means only re-draw the parts that have changed.
@@ -109,6 +110,12 @@ if __name__ == '__main__':
 
     if args.basis == 'fourier':
         basis = FourierSine2D(widths)
+        index_limits = [args.max_ind_basis] * 2
+    elif args.basis == '2spline2D':
+        basis = BSplineFreq2D(widths, 2)
+        index_limits = [args.max_ind_basis] * 2
+    elif args.basis == 'fake':
+        basis = Fake(widths)
         index_limits = [args.max_ind_basis] * 2
    
     opt_params = get_optim_params()
@@ -141,11 +148,11 @@ if __name__ == '__main__':
     gp_params = get_gp_params()
 
 
-    loss2, weights2 = var_wf.find_weights(2*np.exp((X[:,1]-1))*X[:,2],from_covariates=True,normalize_g=False)
+    loss2, weights2 = var_wf.find_weights(4*np.sin(2*np.pi*X[:,1]),from_covariates=True,normalize_g=False)
 
     print(loss2, weights2)
 
-    loss3, weights3 = var_wf.find_weights(X[:,2],from_covariates=True,normalize_g=False)
+    loss3, weights3 = var_wf.find_weights(np.sin(X[:,2]-X[:,1]),from_covariates=True,normalize_g=False)
 
     print(loss3, weights3)
 
@@ -160,7 +167,7 @@ if __name__ == '__main__':
     loss, weights = var_wf.find_weights(est.predict(X),from_covariates=True,normalize_g=False)
 
     linear_operator = LinearOperator.from_vector(weights, dimension, order, zero_partial=False)
-    print(f"{linear_operator} - {est._program} = 0")
+    print(f"{linear_operator.get_adjoint()} - {est._program} = 0")
 
 
 

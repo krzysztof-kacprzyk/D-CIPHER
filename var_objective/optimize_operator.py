@@ -193,8 +193,13 @@ class VariationalWeightsFinder:
             X = np.reshape(self.integrals,(-1,self.J))
             y = np.reshape(g_integrals,(-1,))
 
-            weights, res, rank, s = np.linalg.lstsq(X[:,1:],y,rcond=None) # we do not take the first column of X because we do not want 0th order partial
+            # print(X)
+            # print(y)
 
+            weights, res, rank, s = np.linalg.lstsq(X[:,1:],y,rcond=None) # we do not take the first column of X because we do not want 0th order partial
+            # print(rank)
+            # print(weights)
+            # print(s)
             return (res[0],weights)
             
 

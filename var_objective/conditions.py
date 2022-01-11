@@ -30,6 +30,18 @@ def get_conditions_set(name):
     elif name == 'SLM1':
         conditions = Conditions(2)
         conditions.add_sample([lambda x: 5*(-np.power(2*x-1,2)+1), lambda x: np.power(x-1,2)])
+    elif name == 'HeatZero':
+        conditions = Conditions(1)
+        conditions.add_sample([lambda x: np.zeros_like(x)])
+    elif name == 'Heat1':
+        conditions = Conditions(1)
+        conditions.add_sample([lambda x: np.zeros_like(x)])
+        conditions.add_sample([lambda x: np.ones_like(x)])
+        conditions.add_sample([lambda x: np.ones_like(x)*2.0])
+        conditions.add_sample([lambda x: x])
+        conditions.add_sample([lambda x: 1.0 - x])
+        conditions.add_sample([lambda x: np.cos(x)])
+
     
     return conditions
         
