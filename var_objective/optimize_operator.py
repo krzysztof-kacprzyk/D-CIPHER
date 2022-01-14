@@ -107,68 +107,69 @@ class VariationalWeightsFinder:
 
     def find_weights(self, g_part=None, from_covariates=True, normalize_g=True):
 
-        np.random.seed(self.seed)
-        torch.manual_seed(self.seed)
+        # np.random.seed(self.seed)
+        # torch.manual_seed(self.seed)
 
         # g_part_func should have shape (D,*self.full_grid.shape) or be None
 
         homogeneous = (g_part is None)
           
         if homogeneous:
-            g_integrals = np.zeros((self.D, self.S))
+            raise ValueError("Homogeneous case is not yet implemented")
+            # g_integrals = np.zeros((self.D, self.S))
+            # # else:
+            # #     if from_covariates:
+            # #         g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
+            # #     assert g_part.shape == (self.D,*self.full_grid.shape)
+
+            # #     g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
+            # #     assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
+
+            # #     g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
+            # #     assert g_integrals.shape == (self.D, self.S)
+
+            # integrals_tensor = torch.from_numpy(self.integrals[:,:,1:]) # shape: (D,S,J)
+
+            # model = Model(integrals_tensor,torch.from_numpy(g_integrals),self.alpha,self.beta,self.num_lower_order,homogeneous)
+
+            # weights = torch.randn(self.J-1, requires_grad=True)
+            # if self.optim_name == 'sgd':
+            #     optimizer = torch.optim.SGD([weights],**self.optim_params)
+            # elif self.optim_name == 'adam':
+            #     optimizer = torch.optim.Adam([weights],**self.optim_params)
             # else:
-            #     if from_covariates:
-            #         g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
-            #     assert g_part.shape == (self.D,*self.full_grid.shape)
+            #     raise ValueError(f'Unknown optimizer {self.optim_name}')
 
-            #     g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
-            #     assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
+            # prev_best_loss = INF
+            # prev_best_weights = torch.zeros_like(weights)
+            # epochs_no_improvement = 0
+            # counter = 0
 
-            #     g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
-            #     assert g_integrals.shape == (self.D, self.S)
+            # for i in range(self.num_epochs):
+            #     loss = model.loss(weights)
+            #     counter += 1
 
-            integrals_tensor = torch.from_numpy(self.integrals[:,:,1:]) # shape: (D,S,J)
+            #     if loss >= prev_best_loss:
+            #         epochs_no_improvement += 1
+            #     else:
+            #         prev_best_loss = loss
+            #         with torch.no_grad():
+            #             prev_best_weights = torch.clone(weights)
+            #         epochs_no_improvement = 0
 
-            model = Model(integrals_tensor,torch.from_numpy(g_integrals),self.alpha,self.beta,self.num_lower_order,homogeneous)
+            #     if epochs_no_improvement >= self.patience:
+            #         break
 
-            weights = torch.randn(self.J-1, requires_grad=True)
-            if self.optim_name == 'sgd':
-                optimizer = torch.optim.SGD([weights],**self.optim_params)
-            elif self.optim_name == 'adam':
-                optimizer = torch.optim.Adam([weights],**self.optim_params)
-            else:
-                raise ValueError(f'Unknown optimizer {self.optim_name}')
-
-            prev_best_loss = INF
-            prev_best_weights = torch.zeros_like(weights)
-            epochs_no_improvement = 0
-            counter = 0
-
-            for i in range(self.num_epochs):
-                loss = model.loss(weights)
-                counter += 1
-
-                if loss >= prev_best_loss:
-                    epochs_no_improvement += 1
-                else:
-                    prev_best_loss = loss
-                    with torch.no_grad():
-                        prev_best_weights = torch.clone(weights)
-                    epochs_no_improvement = 0
-
-                if epochs_no_improvement >= self.patience:
-                    break
-
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
+            #     loss.backward()
+            #     optimizer.step()
+            #     optimizer.zero_grad()
 
 
-            print(f"Loss: {prev_best_loss} | Epochs: {counter}")         
-            print(f"Weights: {prev_best_weights}")
-            target = torch.tensor([-1.0,-2.0])
-            print(model.loss(target))
-            return (prev_best_loss, prev_best_weights, None)
+            # print(f"Loss: {prev_best_loss} | Epochs: {counter}")         
+            # print(f"Weights: {prev_best_weights}")
+            # target = torch.tensor([-1.0,-2.0])
+            # print(model.loss(target))
+            # return (prev_best_loss, prev_best_weights, None)
 
         else:
 
@@ -260,8 +261,9 @@ class MSEWeightsFinder:
 
     def find_weights(self, g_part=None, from_covariates=True, normalize_g=None, only_loss=False):
 
-        np.random.seed(self.seed)
-        torch.manual_seed(self.seed)
+        
+        # np.random.seed(self.seed)
+        # torch.manual_seed(self.seed)
 
         # g_part_func should have shape (D,*self.full_grid.shape) or be None
 
@@ -271,55 +273,58 @@ class MSEWeightsFinder:
             homogeneous = False
 
         if homogeneous:
-            g_part = np.zeros((self.D, *self.grid.shape))
+            raise ValueError("Homogeneous case is not yet implemented")
+            # g_part = np.zeros((self.D, *self.grid.shape))
 
-            assert g_part.shape == (self.D, *self.grid.shape)
+            # assert g_part.shape == (self.D, *self.grid.shape)
 
-            derivative_tensor = torch.from_numpy(np.moveaxis(self.derivative_dataset,1,-1))
+            # derivative_tensor = torch.from_numpy(np.moveaxis(self.derivative_dataset,1,-1))
 
-            g_tensor = torch.from_numpy(g_part)
+            # g_tensor = torch.from_numpy(g_part)
 
 
-            model = Model(derivative_tensor,g_tensor,self.alpha,self.beta,self.num_lower_order,homogeneous,norm_sum=True)
+            # model = Model(derivative_tensor,g_tensor,self.alpha,self.beta,self.num_lower_order,homogeneous,norm_sum=True)
 
-            weights = torch.randn(self.J, requires_grad=True)
-            if self.optim_name == 'sgd':
-                optimizer = torch.optim.SGD([weights],**self.optim_params)
-            elif self.optim_name == 'adam':
-                optimizer = torch.optim.Adam([weights],**self.optim_params)
-            else:
-                raise ValueError(f'Unknown optimizer {self.optim_name}')
+            # weights = torch.randn(self.J, requires_grad=True)
+            # if self.optim_name == 'sgd':
+            #     optimizer = torch.optim.SGD([weights],**self.optim_params)
+            # elif self.optim_name == 'adam':
+            #     optimizer = torch.optim.Adam([weights],**self.optim_params)
+            # else:
+            #     raise ValueError(f'Unknown optimizer {self.optim_name}')
 
-            prev_best_loss = INF
-            prev_best_weights = torch.zeros_like(weights)
-            epochs_no_improvement = 0
-            counter = 0
-            for i in range(self.num_epochs):
-                loss = model.loss(weights)
-                counter += 1
-                # print(f"Epoch {i+1} | Loss: {loss}")
+            # prev_best_loss = INF
+            # prev_best_weights = torch.zeros_like(weights)
+            # epochs_no_improvement = 0
+            # counter = 0
+            # for i in range(self.num_epochs):
+            #     loss = model.loss(weights)
+            #     counter += 1
+            #     # print(f"Epoch {i+1} | Loss: {loss}")
 
-                if loss >= prev_best_loss:
-                    epochs_no_improvement += 1
-                else:
-                    prev_best_loss = loss
-                    with torch.no_grad():
-                        prev_best_weights = torch.clone(weights)
-                    epochs_no_improvement = 0
+            #     if loss >= prev_best_loss:
+            #         epochs_no_improvement += 1
+            #     else:
+            #         prev_best_loss = loss
+            #         with torch.no_grad():
+            #             prev_best_weights = torch.clone(weights)
+            #         epochs_no_improvement = 0
 
-                if epochs_no_improvement >= self.patience:
-                    break
+            #     if epochs_no_improvement >= self.patience:
+            #         break
 
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
+            #     loss.backward()
+            #     optimizer.step()
+            #     optimizer.zero_grad()
 
-            print(f"Loss: {prev_best_loss} | Epochs: {counter}")        
-            print(f"Weights: {prev_best_weights}")
-            # target = torch.tensor([0.0,1.0,-1.0])
-            # print(normalize(target))
-            # print(model.loss(target))
-            return (prev_best_loss.item(), prev_best_weights, None)
+            # print(f"Loss: {prev_best_loss} | Epochs: {counter}")        
+            # print(f"Weights: {prev_best_weights}")
+            # # target = torch.tensor([0.0,1.0,-1.0])
+            # # print(normalize(target))
+            # # print(model.loss(target))
+            # return (prev_best_loss.item(), prev_best_weights, None)
+
+            return (0, None)
 
         else:
 

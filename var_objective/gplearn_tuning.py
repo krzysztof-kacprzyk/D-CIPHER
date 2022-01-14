@@ -42,6 +42,11 @@ if __name__ == '__main__':
     parser.add_argument('frequency_per_dim', type=int, help='Frequency per dimension of generated data')
     parser.add_argument('num_tests', type=int, help='Number of trials')
     parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--population_size', nargs='+', default=[1000], type=int)
+    parser.add_argument('--generations', nargs='+', default=[20], type=int)
+    parser.add_argument('--tournament_size', nargs='+', default=[20], type=int)
+    parser.add_argument('--parsimony_coefficient', nargs='+', default=[0.001], type=float)
+    parser.add_argument('--keep_probs_fixed',action='store_true')
 
     args = parser.parse_args()
 
@@ -105,14 +110,14 @@ if __name__ == '__main__':
     var_fitness = make_fitness(_mse_fitness, greater_is_better=False)
 
     gp_parameters_values = {
-        'population_size':[100,500,1000,2000],
-        'generations':[5,10,20,30],
-        'tournament_size':[5,10,20,50],
+        'population_size':args.population_size,
+        'generations':args.generations,
+        'tournament_size':args.tournament_size,
         # 'p_crossover':[0.01,0.1,0.5,0.9],
         # 'p_subtree_mutation':[0.001,0.01,0.1,0.2],
         # 'p_hoist_mutation':[0.001,0.01,0.1,0.2],
         # 'p_point_mutation':[0.001,0.01,0.1,0.2],
-        'parsimony_coefficient':[0.0001,0.001,0.005,0.01]
+        'parsimony_coefficient':args.parsimony_coefficient
     }
 
     gp_params = get_gp_params()
@@ -133,14 +138,21 @@ if __name__ == '__main__':
 
     for param in params_list:
         start = time.time()
-        sum = 2
-        while sum > 1:
-            p_cross  = np.random.rand()
-            p_subtree = np.random.rand()
-            p_hoist = np.random.rand()
-            p_point = np.random.rand() 
-            sum = p_cross + p_subtree + p_hoist + p_point
-        
+
+        if args.keep_probs_fixed:
+            p_cross = 0.9
+            p_subtree = 0.01
+            p_hoist = 0.01
+            p_point = 0.01
+        else:
+            sum = 2
+            while sum > 1:
+                p_cross  = np.random.rand()
+                p_subtree = np.random.rand()
+                p_hoist = np.random.rand()
+                p_point = np.random.rand() 
+                sum = p_cross + p_subtree + p_hoist + p_point
+            
         param['p_crossover'] = p_cross
         param['p_subtree_mutation'] = p_subtree
         param['p_hoist_mutation'] = p_hoist
@@ -170,8 +182,8 @@ if __name__ == '__main__':
     print(f"Smallest loss: {results[min_i]} with parameters {used_params[min_i]}")
     dt = datetime.now().strftime("%d-%m-%YT%H.%M.%S")
     to_save = (results, used_params, programmes, programme_lengths)
-    name_pickle = f"gplearn_tuning_{dt}.p"
-    name_txt = f"gplearn_tuning_{dt}.txt"
+    name_pickle = f"results/gplearn_tuning_{dt}.p"
+    name_txt = f"results/gplearn_tuning_{dt}.txt"
     pickle.dump(to_save, open(name_pickle, "wb" ))
     with open(name_txt, "w") as f:
         f.write(f"Loss: {results[min_i]}\nParameters: {used_params[min_i]}\nFunction: {programmes[min_i]}\nLength: {programme_lengths[min_i]}")
