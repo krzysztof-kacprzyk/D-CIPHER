@@ -112,7 +112,7 @@ if __name__ == '__main__':
         # 'p_subtree_mutation':[0.001,0.01,0.1,0.2],
         # 'p_hoist_mutation':[0.001,0.01,0.1,0.2],
         # 'p_point_mutation':[0.001,0.01,0.1,0.2],
-        'parsimony_coefficient':[0.0001,0.001,0.005,0.01,0.05]
+        'parsimony_coefficient':[0.0001,0.001,0.005,0.01]
     }
 
     gp_params = get_gp_params()
