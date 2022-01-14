@@ -3,6 +3,7 @@ import torch
 from itertools import product
 from .differential_operator import LinearOperator
 from .derivative_estimators import all_derivatives
+from .utils import projective_lstsq, unit_lstsq_svd
 
 EPS = torch.tensor(0.0001)
 INF = torch.tensor(1000000)
@@ -248,8 +249,17 @@ class MSEWeightsFinder:
         for d in range(self.D):
             self.grid_and_fields[d] = np.stack([*self.grid.by_axis(),*(self.dataset[d])],axis=0)
 
+        derivative_part = np.moveaxis(self.derivative_dataset,1,-1)
+        self.X = np.reshape(derivative_part,(-1,self.J))[:,1:]
+        m, n = self.X.shape
+        X_T = np.transpose(self.X)
+        self.lstsq_matrix = np.linalg.inv(X_T @ self.X) @ X_T 
+        self.loss_matrix = self.X @ self.lstsq_matrix - np.eye(m)
 
-    def find_weights(self, g_part=None, from_covariates=True, normalize_g=True):
+        
+
+
+    def find_weights(self, g_part=None, from_covariates=True, normalize_g=None, only_loss=False):
 
         np.random.seed(self.seed)
         torch.manual_seed(self.seed)
@@ -314,25 +324,81 @@ class MSEWeightsFinder:
 
         else:
 
-            if from_covariates:
-                if normalize_g:
-                    length = np.linalg.norm(g_part,2)
-                    n = len(g_part)
-                    if length == 0.0:
-                        g_part[:] = 1.0
-                    else:
-                        g_part = (np.sqrt(n) * g_part) / length
+            if normalize_g == 'unit_g':
+                length = np.linalg.norm(g_part,2)
+                n = len(g_part)
+                if length == 0.0:
+                    g_part[:] = 1.0
+                else:
+                    g_part = (np.sqrt(n) * g_part) / length
+                
                 g_part = np.reshape(g_part, (self.D, *(self.grid.shape)))
 
-            assert g_part.shape == (self.D, *self.grid.shape)
-            derivative_part = np.moveaxis(self.derivative_dataset,1,-1)
+                y = np.reshape(g_part,(-1,))
 
-            X = np.reshape(derivative_part,(-1,self.J))
-            y = np.reshape(g_part,(-1,))
+                if only_loss:
+                    
+                    loss = np.sum(np.dot(self.loss_matrix,y) ** 2)
+                    return (loss,None)
 
-            weights, res, rank, s = np.linalg.lstsq(X[:,1:],y,rcond=None)
+                else:
 
-            return (res[0],weights)
+                    sol = np.dot(self.lstsq_matrix,y)
+                    loss = np.sum((np.dot(self.X,sol) - y) ** 2)
+
+                    return (loss,sol)
+
+            elif normalize_g == 'unit_L':
+
+                g_part = np.reshape(g_part, (self.D, *(self.grid.shape)))
+
+                derivative_part = np.moveaxis(self.derivative_dataset,1,-1)
+
+                X = np.reshape(derivative_part,(-1,self.J))
+                y = np.reshape(g_part,(-1,))
+
+                sol = unit_lstsq_svd(X[:,1:],y)
+
+                loss = np.sum((np.dot(X[:,1:],sol)-y) ** 2)
+
+                return (loss,sol)
+
+            elif normalize_g == 'projective':
+
+                g_part = np.reshape(g_part, (self.D, *(self.grid.shape)))
+
+                derivative_part = np.moveaxis(self.derivative_dataset,1,-1)
+
+                X = np.reshape(derivative_part,(-1,self.J))
+                y = np.reshape(g_part,(-1,))
+
+                sol, loss = projective_lstsq(X[:,1:],y)
+
+                return (loss,sol)
+
+            # elif normalize_g == 'scale_inv_loss':
+
+            #     g_part = np.reshape(g_part, (self.D, *(self.grid.shape)))
+
+            #     derivative_part = np.moveaxis(self.derivative_dataset,1,-1)
+
+            #     X = np.reshape(derivative_part,(-1,self.J))
+            #     y = np.reshape(g_part,(-1,))
+
+            #     a, res, rank, s = np.linalg.lstsq(X[:,1:],y,rcond=None)
+
+            #     l_a = np.linalg.norm(a,2)
+            #     l_y = np.linalg.norm(y,2)
+
+            #     loss = np.abs((np.dot(np.dot(X[:,1:],a),y))) / (l_a * l_y)
+
+        
+
+
+            
+            
+
+            
             
 
 

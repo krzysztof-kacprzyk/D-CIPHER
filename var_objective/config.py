@@ -12,11 +12,11 @@ def get_optim_params():
 
 def get_gp_params():
     dic = {
-        'population_size': 1000,
+        'population_size': 100,
         'function_set':('add', 'sub', 'mul', 'div', 'sin', 'exp'),
-        'generations':20,
+        'generations':10,
         'n_jobs':-1,
-        'parsimony_coefficient':100.0
+        'parsimony_coefficient':10.0
     }
     return dic
 
