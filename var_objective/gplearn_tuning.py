@@ -37,20 +37,28 @@ def _check_if_zero(vector):
 
 if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser(description="Discover a PDE")
+    parser.add_argument('width', type=float, help='Width of the grid')
+    parser.add_argument('frequency_per_dim', type=int, help='Frequency per dimension of generated data')
+    parser.add_argument('num_tests', type=int, help='Number of trials')
+    parser.add_argument('--seed', type=int, default=0)
+
+    args = parser.parse_args()
+
     PDES_NAME = 'HeatEquation_0.1'
-    WIDTH = 1.0
-    FREQUENCY_PER_DIM = 20
+    WIDTH = args.width
+    FREQUENCY_PER_DIM = args.frequency_per_dim
     NOISE_RATIO = 0
     CONDITIONS_SET = 'HeatTuning'
     FIELD_INDEX = 0
     DIFF_ENGINE = 'finite'
-    NUM_TESTS = 1
+    NUM_TESTS = args.num_tests
 
     pdes = get_pdes(PDES_NAME)
 
     widths = [WIDTH] * 2
 
-    SEED = 0
+    SEED = args.seed
 
 
     observed_grid = EquiPartGrid(widths, FREQUENCY_PER_DIM)
