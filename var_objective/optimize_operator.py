@@ -253,8 +253,7 @@ class MSEWeightsFinder:
         self.X = np.reshape(derivative_part,(-1,self.J))[:,1:]
         m, n = self.X.shape
         X_T = np.transpose(self.X)
-        self.lstsq_matrix = np.linalg.inv(X_T @ self.X) @ X_T 
-        self.loss_matrix = self.X @ self.lstsq_matrix - np.eye(m)
+        self.loss_matrix = self.X @ np.linalg.inv(X_T @ self.X) @ X_T  - np.eye(m)
 
         
 
@@ -344,11 +343,11 @@ class MSEWeightsFinder:
                     return (loss,None)
 
                 else:
+                    
+                    weights, res, rank, s = np.linalg.lstsq(self.X,y,rcond=None)
+                    loss = res / num_samples
 
-                    sol = np.dot(self.lstsq_matrix,y)
-                    loss = np.sum((np.dot(self.X,sol) - y) ** 2) / num_samples
-
-                    return (loss,sol)
+                    return (loss,weights)
 
             elif normalize_g == 'unit_L':
 
