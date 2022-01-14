@@ -105,14 +105,14 @@ if __name__ == '__main__':
     var_fitness = make_fitness(_mse_fitness, greater_is_better=False)
 
     gp_parameters_values = {
-        'population_size':[100,200,1000,2000,5000],
-        'generations':[5,10,20,50],
+        'population_size':[100,500,1000,2000],
+        'generations':[5,10,20,30],
         'tournament_size':[5,10,20,50],
         # 'p_crossover':[0.01,0.1,0.5,0.9],
         # 'p_subtree_mutation':[0.001,0.01,0.1,0.2],
         # 'p_hoist_mutation':[0.001,0.01,0.1,0.2],
         # 'p_point_mutation':[0.001,0.01,0.1,0.2],
-        'parsimony_coefficient':[0.001,0.005,0.01,0.05,0.1]
+        'parsimony_coefficient':[0.0001,0.001,0.005,0.01,0.05]
     }
 
     gp_params = get_gp_params()
@@ -123,7 +123,7 @@ if __name__ == '__main__':
 
     parameter_grid = ParameterGrid(gp_parameters_values)
 
-    params_list = np.random.choice(list(parameter_grid), size=NUM_TESTS, replace=False)
+    params_list = np.random.choice(list(parameter_grid), size=NUM_TESTS, replace=True)
 
     results = []
     used_params = []
@@ -132,6 +132,7 @@ if __name__ == '__main__':
     programme_lengths = []
 
     for param in params_list:
+        start = time.time()
         sum = 2
         while sum > 1:
             p_cross  = np.random.rand()
@@ -147,8 +148,10 @@ if __name__ == '__main__':
 
         print(f"Using {param}")
 
+        
         est = SymbolicRegressor(metric=var_fitness, **param ,verbose=1, random_state=SEED, function_set=('add', 'sub', 'mul', 'div','sin', 'log','exp'))
         est.fit(X, fake_y)
+        
         loss, weights = mse_wf.find_weights(est.predict(X),from_covariates=True, normalize_g='unit_g', only_loss=False)
         print(est._program)
         eq, eqC = gp_to_pysym_with_coef(est)
@@ -156,7 +159,12 @@ if __name__ == '__main__':
         used_params.append(param)
         programmes.append(f"{eq}")
         programme_lengths.append(est._program.length_)
+
+        end = time.time()
+
         print(f"{weights} - {sympy.simplify(eq)} = 0")
+        print(f"The evolution took {end-start} seconds")
+        
     
     min_i = np.argmin(results)
     print(f"Smallest loss: {results[min_i]} with parameters {used_params[min_i]}")
