@@ -150,6 +150,7 @@ if __name__ == '__main__':
         est = SymbolicRegressor(metric=var_fitness, **param ,verbose=1, random_state=SEED, function_set=('add', 'sub', 'mul', 'div','sin', 'log','exp'))
         est.fit(X, fake_y)
         loss, weights = mse_wf.find_weights(est.predict(X),from_covariates=True, normalize_g='unit_g', only_loss=False)
+        print(est._program)
         eq, eqC = gp_to_pysym_with_coef(est)
         results.append(loss)
         used_params.append(param)
