@@ -41,7 +41,11 @@ def get_conditions_set(name):
         conditions.add_sample([lambda x: x])
         conditions.add_sample([lambda x: 1.0 - x])
         conditions.add_sample([lambda x: np.cos(x)])
+    elif name == 'HeatTuning':
+        conditions = Conditions(1)
+        conditions.add_sample([lambda x: np.zeros_like(x)])
+        conditions.add_sample([lambda x: x])
+        conditions.add_sample([lambda x: np.cos(x)])
 
-    
     return conditions
         

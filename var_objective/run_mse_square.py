@@ -101,7 +101,7 @@ if __name__ == '__main__':
 
     gp_params = get_gp_params()
 
-    loss2, weights2 = mse_wf.find_weights(4*np.sin(2*np.pi*X[:,1]),from_covariates=True,normalize_g=LSTSQ_SOLVER)
+    loss2, weights2 = mse_wf.find_weights(np.sin(2*np.pi*X[:,1]),from_covariates=True,normalize_g=LSTSQ_SOLVER)
 
     print(loss2, weights2)
 

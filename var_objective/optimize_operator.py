@@ -3,7 +3,7 @@ import torch
 from itertools import product
 from .differential_operator import LinearOperator
 from .derivative_estimators import all_derivatives
-from .utils import projective_lstsq, unit_lstsq_svd
+from .utils_lstsq import projective_lstsq, unit_lstsq_svd
 
 EPS = torch.tensor(0.0001)
 INF = torch.tensor(1000000)
@@ -332,19 +332,21 @@ class MSEWeightsFinder:
                 else:
                     g_part = (np.sqrt(n) * g_part) / length
                 
-                g_part = np.reshape(g_part, (self.D, *(self.grid.shape)))
+                # g_part = np.reshape(g_part, (self.D, *(self.grid.shape)))
 
-                y = np.reshape(g_part,(-1,))
+                y = g_part
+
+                num_samples = len(y)
 
                 if only_loss:
                     
-                    loss = np.sum(np.dot(self.loss_matrix,y) ** 2)
+                    loss = np.sum(np.dot(self.loss_matrix,y) ** 2) / num_samples
                     return (loss,None)
 
                 else:
 
                     sol = np.dot(self.lstsq_matrix,y)
-                    loss = np.sum((np.dot(self.X,sol) - y) ** 2)
+                    loss = np.sum((np.dot(self.X,sol) - y) ** 2) / num_samples
 
                     return (loss,sol)
 
