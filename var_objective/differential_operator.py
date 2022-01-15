@@ -3,7 +3,7 @@ import numpy as np
 from scipy.special import comb
 from abc import ABC, abstractmethod
 
-TOL = 0.0001
+TOL = 0.0
 
 def _num_combi(a,b):
     if b < 1 or a+b < 1:

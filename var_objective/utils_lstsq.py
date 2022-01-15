@@ -114,6 +114,54 @@ def projective_lstsq(A,b):
     print(sols)
     min_i = np.argmin(losses)
     return (sols[min_i], losses[min_i])
+
+
+class UnitLstsqSVD:
+
+    def __init__(self, A, offset=0.1):
+        self.A = A
+        self.offset = offset
+
+        m, n = self.A.shape
+
+        u,s,vh = np.linalg.svd(A, full_matrices=True)
+
+        s_full = np.zeros(n)
+        for i,si in enumerate(s):
+            s_full[i]=si
+
+        p = s.shape[0]
+
+        self.main_part = np.transpose(u[:,:p] * s) 
+
+        self.s_full2 = s_full ** 2
+
+        s2_min = np.min(s ** 2)
+
+        self.lower_bound = -s2_min
+
+        
+        
+
+    def solve(self,b):
+
+        z = np.dot(self.main_part,b)
+        z2 = z ** 2
+        
+        def f(l):
+            return (np.sum(z2 * (1 / (self.s_full2 + l) ** 2)) - 1) ** 2
+
+        def jac(l):
+            return 2 * (np.sum(z2 * (1 / (self.s_full2 + l) ** 2)) - 1) * np.sum(z2 * (-2) * ((self.s_full2 + l) ** (-3)))
+
+        l = minimize(f, self.lower_bound+self.offset, method='BFGS', jac=jac).x
+        x = ridge(self.A,b,l)
+        length = np.sum(x**2)
+    
+        return x / length
+       
+
+
     
 
 

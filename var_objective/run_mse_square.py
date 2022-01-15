@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     INF_FLOAT = 9999999999999.9
 
-    LSTSQ_SOLVER = 'unit_g'
+    LSTSQ_SOLVER = 'unit_L'
 
     pdes = get_pdes(args.name)
 
@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     print("Initializing MSE Weights Finder")
     start = time.time()
-    mse_wf = MSEWeightsFinder(observed_dataset,args.field_index,observed_grid,dimension=dimension,order=order,engine=engine,**opt_params, seed=args.seed)
+    mse_wf = MSEWeightsFinder(observed_dataset,args.field_index,observed_grid,dimension=dimension,order=order,engine=engine,**opt_params, seed=args.seed, calculate_svd=True)
     end = time.time()
     print(f"Weight Finder initialized in {end-start} seconds")
 
@@ -101,7 +101,7 @@ if __name__ == '__main__':
 
     gp_params = get_gp_params()
 
-    loss2, weights2 = mse_wf.find_weights(np.sin(2*np.pi*X[:,1]),from_covariates=True,normalize_g=LSTSQ_SOLVER)
+    loss2, weights2 = mse_wf.find_weights(4*np.sin(2*np.pi*X[:,1]),from_covariates=True,normalize_g=LSTSQ_SOLVER)
 
     print(loss2, weights2)
 
@@ -109,6 +109,8 @@ if __name__ == '__main__':
 
     print(loss3, weights3)
 
+    print(f"Starting evolution with population {gp_params['population_size']} and {gp_params['generations']} generations")
+    start = time.time()
     est = SymbolicRegressor(metric=var_fitness, **gp_params ,verbose=1, random_state=args.seed)
 
     est.fit(X, fake_y)
@@ -119,6 +121,9 @@ if __name__ == '__main__':
 
     linear_operator = LinearOperator.from_vector(weights, dimension, order, zero_partial=False)
     print(f"{linear_operator} - {est._program} = 0")
+
+    end = time.time()
+    print(f"Evolution finished in {end-start} seconds")
 
 
 

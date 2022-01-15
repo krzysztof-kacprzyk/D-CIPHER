@@ -3,7 +3,7 @@ import torch
 from itertools import product
 from .differential_operator import LinearOperator
 from .derivative_estimators import all_derivatives
-from .utils_lstsq import projective_lstsq, unit_lstsq_svd
+from .utils_lstsq import UnitLstsqSVD, projective_lstsq, unit_lstsq_svd
 
 EPS = torch.tensor(0.0001)
 INF = torch.tensor(1000000)
@@ -210,7 +210,7 @@ class VariationalWeightsFinder:
 
 class MSEWeightsFinder:
 
-    def __init__(self, dataset, field_index, grid, dimension, order, engine, alpha=0.1, beta=0.1, optim_name='sgd', optim_params={'lr':0.01}, num_epochs=100, patience=10, seed=0):
+    def __init__(self, dataset, field_index, grid, dimension, order, engine, alpha=0.1, beta=0.1, optim_name='sgd', optim_params={'lr':0.01}, num_epochs=100, patience=10, seed=0, calculate_svd=False):
         self.dataset = dataset
         self.field_index = field_index
         self.grid = grid
@@ -256,6 +256,8 @@ class MSEWeightsFinder:
         print(f"Shape of the matrix: {m} x {n}")
         self.loss_matrix = self.X @ np.linalg.inv(np.transpose(self.X) @ self.X) @ np.transpose(self.X)  - np.eye(m)
 
+        if calculate_svd:
+            self.weight_finder = UnitLstsqSVD(self.X)
         
 
 
@@ -356,16 +358,13 @@ class MSEWeightsFinder:
 
             elif normalize_g == 'unit_L':
 
-                g_part = np.reshape(g_part, (self.D, *(self.grid.shape)))
+                y = g_part
 
-                derivative_part = np.moveaxis(self.derivative_dataset,1,-1)
+                num_samples = len(y)
 
-                X = np.reshape(derivative_part,(-1,self.J))
-                y = np.reshape(g_part,(-1,))
+                sol = self.weight_finder.solve(y)
 
-                sol = unit_lstsq_svd(X[:,1:],y)
-
-                loss = np.sum((np.dot(X[:,1:],sol)-y) ** 2)
+                loss = np.sum((np.dot(self.X,sol)-y) ** 2) / num_samples
 
                 return (loss,sol)
 
