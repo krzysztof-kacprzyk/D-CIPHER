@@ -253,8 +253,8 @@ class MSEWeightsFinder:
         derivative_part = np.moveaxis(self.derivative_dataset,1,-1)
         self.X = np.reshape(derivative_part,(-1,self.J))[:,1:]
         m, n = self.X.shape
-        X_T = np.transpose(self.X)
-        self.loss_matrix = self.X @ np.linalg.inv(X_T @ self.X) @ X_T  - np.eye(m)
+        print(f"Shape of the matrix: {m} x {n}")
+        self.loss_matrix = self.X @ np.linalg.inv(np.transpose(self.X) @ self.X) @ np.transpose(self.X)  - np.eye(m)
 
         
 
@@ -350,7 +350,7 @@ class MSEWeightsFinder:
                 else:
                     
                     weights, res, rank, s = np.linalg.lstsq(self.X,y,rcond=None)
-                    loss = res / num_samples
+                    loss = res[0] / num_samples
 
                     return (loss,weights)
 

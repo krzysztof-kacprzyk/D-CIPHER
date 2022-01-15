@@ -20,6 +20,9 @@ from sklearn.model_selection import ParameterGrid
 import pickle
 from datetime import datetime
 import sympy
+import pandas as pd
+from copy import deepcopy
+
 INF_FLOAT = 9999999999999.9
 
 def grid_and_fields_to_covariates(grid_and_fields):
@@ -34,6 +37,35 @@ def _check_if_zero(vector):
         return True
     else:
         return False
+
+def save_checkpoint(_dt, seed, _results, _used_params, _programmes, _programme_lengths):
+    min_i = np.argmin(_results)
+    print(f"Smallest loss: {_results[min_i]} with parameters {_used_params[min_i]}")
+    to_save = (_results, _used_params, _programmes, _programme_lengths)
+    name_pickle = f"results/gplearn_tuning_{_dt}.p"
+    name_txt = f"results/gplearn_tuning_{_dt}.txt"
+    name_csv = f"results/gplearn_tuning_{_dt}.csv"
+
+    pickle.dump(to_save, open(name_pickle, "wb" ))
+    with open(name_txt, "w") as f:
+        f.write(f"""Seed: {seed}\n
+        Num of programmes: {len(_results)}\n
+        Loss: {_results[min_i]}\n
+        Parameters: {_used_params[min_i]}\n
+        Function: {_programmes[min_i]}\n
+        Length: {_programme_lengths[min_i]}\n
+        PDE name: {PDES_NAME}\n
+        WIDTH: {WIDTH}\n
+        FREQUENCY_PER_DIM: {FREQUENCY_PER_DIM}\n
+        NOISE_RATIO: {NOISE_RATIO}\n
+        CONDITIONS_SET: {CONDITIONS_SET}\n
+        DIFF_ENGINE: {DIFF_ENGINE}\n
+        NUM_TESTS: {NUM_TESTS}\n
+        ARGS: {vars(args)}""")
+    df = pd.DataFrame(_used_params)
+    df['loss'] = np.array(_results)
+    df['equation'] = _programmes
+    df.to_csv(name_csv)
 
 if __name__ == '__main__':
 
@@ -126,9 +158,11 @@ if __name__ == '__main__':
 
     np.random.seed(SEED)
 
+    seeds = [np.random.randint(0,999999999) for i in range(NUM_TESTS)]
+
     parameter_grid = ParameterGrid(gp_parameters_values)
 
-    params_list = np.random.choice(list(parameter_grid), size=NUM_TESTS, replace=True)
+    params_list = np.random.choice(list(parameter_grid), size=NUM_TESTS, replace=(not args.keep_probs_fixed))
 
     results = []
     used_params = []
@@ -136,8 +170,15 @@ if __name__ == '__main__':
     weights = []
     programme_lengths = []
 
-    for param in params_list:
+    dt = datetime.now().strftime("%d-%m-%YT%H.%M.%S")
+
+    for index, _param in enumerate(params_list):
+        
+        param = deepcopy(_param)
+        
         start = time.time()
+
+        np.random.seed(seeds[index])
 
         if args.keep_probs_fixed:
             p_cross = 0.9
@@ -166,7 +207,10 @@ if __name__ == '__main__':
         
         loss, weights = mse_wf.find_weights(est.predict(X),from_covariates=True, normalize_g='unit_g', only_loss=False)
         print(est._program)
-        eq, eqC = gp_to_pysym_with_coef(est)
+        try:
+            eq, eqC = gp_to_pysym_with_coef(est)
+        except:
+            eq = est._program
         results.append(loss)
         used_params.append(param)
         programmes.append(f"{eq}")
@@ -176,16 +220,6 @@ if __name__ == '__main__':
 
         print(f"{weights} - {sympy.simplify(eq)} = 0")
         print(f"The evolution took {end-start} seconds")
-        
-    
-    min_i = np.argmin(results)
-    print(f"Smallest loss: {results[min_i]} with parameters {used_params[min_i]}")
-    dt = datetime.now().strftime("%d-%m-%YT%H.%M.%S")
-    to_save = (results, used_params, programmes, programme_lengths)
-    name_pickle = f"results/gplearn_tuning_{dt}.p"
-    name_txt = f"results/gplearn_tuning_{dt}.txt"
-    pickle.dump(to_save, open(name_pickle, "wb" ))
-    with open(name_txt, "w") as f:
-        f.write(f"Loss: {results[min_i]}\nParameters: {used_params[min_i]}\nFunction: {programmes[min_i]}\nLength: {programme_lengths[min_i]}")
 
+        save_checkpoint(dt, SEED, results, used_params, programmes, programme_lengths)
 
