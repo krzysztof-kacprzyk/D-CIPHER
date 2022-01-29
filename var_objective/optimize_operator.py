@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 from itertools import product
+
+from var_objective.grids import EquiPartGrid
 from .differential_operator import LinearOperator
 from .derivative_estimators import all_derivatives
 from .utils_lstsq import UnitLstsqSVD, projective_lstsq, unit_lstsq_svd
@@ -92,9 +94,13 @@ class VariationalWeightsFinder:
 
         for d in range(self.D):
             static_part[d] = np.multiply(self.test_function_part, self.estimated_dataset[d][field_index])
-        self.integrals = np.multiply(static_part, self.full_grid.for_integration()).sum(axis=tuple(range(3, len(static_part.shape))))
+        
+        if isinstance(self.full_grid, EquiPartGrid):
+            integrals = static_part.sum(axis=tuple(range(3, len(static_part.shape)))) * self.full_grid.get_integration_constant()
+        else:
+            integrals = np.multiply(static_part, self.full_grid.for_integration()).sum(axis=tuple(range(3, len(static_part.shape))))
 
-        assert self.integrals.shape == (self.D, self.S, self.J)
+        assert integrals.shape == (self.D, self.S, self.J)
 
         assert self.order > 0
         self.num_lower_order = LinearOperator.get_vector_length(self.dimension, self.order-1)
@@ -104,8 +110,49 @@ class VariationalWeightsFinder:
         for d in range(self.D):
             self.grid_and_fields[d] = np.stack([*full_grid.by_axis(),*(estimated_dataset[d])],axis=0)
 
+        self.X = np.reshape(integrals,(-1,self.J))[:,1:]
+        m, n = self.X.shape
+        print(m,n)
+        self.loss_matrix = self.X @ np.linalg.inv(np.transpose(self.X) @ self.X) @ np.transpose(self.X)  - np.eye(m)
+        self.weight_finder = UnitLstsqSVD(self.X,offset=0.001)
 
-    def find_weights(self, g_part=None, from_covariates=True, normalize_g=True):
+    def _calculate_loss(self, g_part, weights, normalize=True):
+        
+        g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
+
+        assert g_part.shape == (self.D,*self.full_grid.shape)
+
+        g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
+        assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
+
+        if isinstance(self.full_grid, EquiPartGrid):
+            g_integrals = g_part.sum(axis=tuple(range(2, len(g_part.shape)))) * self.full_grid.get_integration_constant()
+        else:    
+            g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
+        assert g_integrals.shape == (self.D, self.S)
+
+        y = np.reshape(g_integrals,(-1,))
+
+        if normalize:
+
+            length = np.linalg.norm(y,2)
+            n = len(y)
+            if length == 0.0:
+                raise ValueError("Error. g_part cannot be 0")
+            else:
+                y = y / length
+                weights = weights / length
+            
+        print(weights)
+        num_samples = len(y)
+
+        loss = np.sum((np.dot(self.X,weights) - y) ** 2) / num_samples
+    
+        return loss
+
+
+
+    def find_weights(self, g_part=None, from_covariates=True, normalize_g=None, only_loss=False):
 
         # np.random.seed(self.seed)
         # torch.manual_seed(self.seed)
@@ -173,37 +220,80 @@ class VariationalWeightsFinder:
 
         else:
 
-            if from_covariates:
+            if normalize_g == 'unit_g':
+
                 g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
 
-            assert g_part.shape == (self.D,*self.full_grid.shape)
+                assert g_part.shape == (self.D,*self.full_grid.shape)
 
-            g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
-            assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
+                g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
+                assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
 
-            g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
-            assert g_integrals.shape == (self.D, self.S)
+                if isinstance(self.full_grid, EquiPartGrid):
+                    g_integrals = g_part.sum(axis=tuple(range(2, len(g_part.shape)))) * self.full_grid.get_integration_constant()
+                else:    
+                    g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
+                assert g_integrals.shape == (self.D, self.S)
 
-            if normalize_g:
-                length = np.linalg.norm(g_integrals,2)
-                n = len(g_integrals)
+                y = np.reshape(g_integrals,(-1,))
+
+                length = np.linalg.norm(y,2)
+                n = len(y)
                 if length == 0.0:
-                    g_integrals[:] = 1.0 / np.sqrt(n)
+                    raise ValueError("Error. g_part cannot be 0")
                 else:
-                    g_integrals = g_integrals / length
+                    y = y / length
+                
+                num_samples = len(y)
 
-            X = np.reshape(self.integrals,(-1,self.J))
-            y = np.reshape(g_integrals,(-1,))
+                if only_loss:
+                    
+                    loss = np.sum(np.dot(self.loss_matrix,y) ** 2) / num_samples
+                    return (loss,None)
 
-            # print(X)
-            # print(y)
+                else:
+                    
+                    weights = np.dot(np.linalg.inv(np.transpose(self.X) @ self.X) @ np.transpose(self.X),y)
+                    loss = np.sum((np.dot(self.X,weights) - y) ** 2)
+                    # weights, res, rank, s = np.linalg.lstsq(self.X,y,rcond=None)
+                    # if len(res) == 0:
+                    #     print("Issue with LSTSQ solver")
+                    #     loss = 1 / num_samples
+                    # else:
+                    #     loss = res[0] / num_samples
 
-            weights, res, rank, s = np.linalg.lstsq(X[:,1:],y,rcond=None) # we do not take the first column of X because we do not want 0th order partial
-            # print(rank)
-            # print(weights)
-            # print(s)
-            return (res[0],weights)
-            
+                    return (loss,weights)
+
+            elif normalize_g == 'unit_L':
+
+                g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
+
+                assert g_part.shape == (self.D,*self.full_grid.shape)
+
+                g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
+                assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
+
+                if isinstance(self.full_grid, EquiPartGrid):
+                    g_integrals = g_part.sum(axis=tuple(range(2, len(g_part.shape)))) * self.full_grid.get_integration_constant()
+                else:    
+                    g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
+                assert g_integrals.shape == (self.D, self.S)
+
+                y = np.reshape(g_integrals,(-1,))
+
+                num_samples = len(y)
+
+                sol = self.weight_finder.solve(y,verbose=True)
+
+                if sol is None:
+                    return (None,None)
+
+                loss = np.sum((np.dot(self.X,sol)-y) ** 2) / num_samples
+
+                return (loss,sol)
+
+           
+                
 
         
             
@@ -336,7 +426,7 @@ class MSEWeightsFinder:
                 if length == 0.0:
                     g_part[:] = 1.0
                 else:
-                    g_part = (np.sqrt(n) * g_part) / length
+                    g_part = g_part / length
                 
                 # g_part = np.reshape(g_part, (self.D, *(self.grid.shape)))
 

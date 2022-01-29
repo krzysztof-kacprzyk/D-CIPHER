@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import minimize
+from scipy.optimize import minimize, minimize_scalar, brentq
 
 def plot_length(A,b,t):
     m = A.shape[0]
@@ -136,28 +136,90 @@ class UnitLstsqSVD:
 
         self.s_full2 = s_full ** 2
 
-        s2_min = np.min(s ** 2)
+        # s2_min = np.min(s ** 2)
 
-        self.lower_bound = -s2_min
+        # self.lower_bound = -s2_min
 
         
         
 
-    def solve(self,b):
+    def solve(self,b,verbose=False,tol=0.01):
+
+        np.set_printoptions(precision=20)
 
         z = np.dot(self.main_part,b)
         z2 = z ** 2
+
+        z2_max = np.max(z2)
+
+        z_mod = np.abs(z)
+
+        z2_mask = z2 != 0
+        s_full2_masked = self.s_full2[z2_mask]
+        if len(s_full2_masked) == 0:
+            print("Error. No solution. The whole function is equal to 0")
+            return None
+        lower_bound = -np.min(s_full2_masked)
         
-        def f(l):
-            return (np.sum(z2 * (1 / (self.s_full2 + l) ** 2)) - 1) ** 2
 
-        def jac(l):
-            return 2 * (np.sum(z2 * (1 / (self.s_full2 + l) ** 2)) - 1) * np.sum(z2 * (-2) * ((self.s_full2 + l) ** (-3)))
+        n = len(z2)
 
-        l = minimize(f, self.lower_bound+self.offset, method='BFGS', jac=jac).x
-        x = ridge(self.A,b,l)
-        length = np.sum(x**2)
+        x_max = np.max(np.sqrt(n) * z_mod - self.s_full2)
     
+        interval = (x_max - lower_bound)
+
+        if interval == 0.0:
+            print("Zero interval. Probably the precision is too small")
+            # print(z_mod)
+            # print(self.s_full2)
+            # print(x_max)
+            # print(lower_bound)
+            # print(lower_bound * 1000000000000)
+            l = lower_bound
+
+            # x_max = np.max(1000000000000*np.sqrt(n) * z_mod - 1000000000000*self.s_full2)
+            # print(x_max)
+            # print(x_max - lower_bound * 1000000000000)
+            # print(lower_bound * 1000000000000)
+        else:
+
+            scaled_lower_bound = lower_bound / interval
+            scaled_x_max = x_max / interval
+
+            def f(l_t):
+                return np.sum(z2 * (1 / (self.s_full2 + l_t*interval) ** 2)) - 1
+
+            def jac(l):
+                return 2 * (np.sum(z2 * (1 / (self.s_full2 + l) ** 2)) - 1) * np.sum(z2 * (-2) * ((self.s_full2 + l) ** (-3)))
+
+
+
+        
+        
+            step = 1.0
+            while f(scaled_lower_bound + step) < 0:
+                step /= 2
+
+            x, rep = brentq(f, scaled_lower_bound+step, scaled_x_max, full_output=True)
+            l = x * interval
+
+        # rep = minimize_scalar(f, bounds=(scaled_lower_bound, scaled_x_max),method='bounded',options={'xatol':tol**3})
+        # l = rep.x * interval
+
+
+        x = ridge(self.A,b,l)
+        length = np.linalg.norm(x,2)
+        
+        if np.abs(length - 1.0) > tol:
+            print(f"Something wrong with optimizer. Length found is {length}")
+            # if interval != 0:
+                # print(f"Parameter is {l / interval}")
+                #print(f"Delta is {f(l/interval)}")
+                # time = np.linspace(scaled_lower_bound + step, scaled_x_max,1000)
+                # plt.plot(time, [f(t) for t in time])
+                # plt.show()
+        if length == 0:
+            return None
         return x / length
        
 

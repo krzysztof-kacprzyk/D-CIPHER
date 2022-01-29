@@ -3,6 +3,7 @@ import argparse
 import time
 
 from var_objective.differential_operator import LinearOperator
+from var_objective.utils.gp_utils import gp_to_pysym_with_coef
 
 from .equations import get_pdes
 from .grids import EquiPartGrid
@@ -53,6 +54,8 @@ if __name__ == '__main__':
     pdes = get_pdes(args.name)
 
     widths = [args.width] * 2
+
+    LSTSQ_SOLVER = 'unit_L'
 
 
     observed_grid = EquiPartGrid(widths, args.frequency_per_dim)
@@ -130,14 +133,14 @@ if __name__ == '__main__':
     def _var_fitness(y, y_pred, w):
 
         if len(y_pred) == 2:
-            print("Test")
             return 0.0
 
         if _check_if_zero(y_pred):
             return INF
 
-        loss, weights = var_wf.find_weights(y_pred,from_covariates=True, normalize_g=True)
-
+        loss, weights = var_wf.find_weights(y_pred,from_covariates=True, normalize_g=LSTSQ_SOLVER, only_loss=False)
+        if loss is None:
+            return INF
         return loss
     
     X = grid_and_fields_to_covariates(var_wf.grid_and_fields)
@@ -147,27 +150,51 @@ if __name__ == '__main__':
 
     gp_params = get_gp_params()
 
-
-    loss2, weights2 = var_wf.find_weights(4*np.sin(2*np.pi*X[:,1]),from_covariates=True,normalize_g=False)
-
-    print(loss2, weights2)
-
-    loss3, weights3 = var_wf.find_weights(np.sin(X[:,2]-X[:,1]),from_covariates=True,normalize_g=False)
-
-    print(loss3, weights3)
+    target_weights = pdes.get_expression()[args.field_index][0].get_adjoint().vectorize()[1:]
+    print(target_weights)
+    len_w = np.linalg.norm(target_weights,2)
+    print(len_w)
 
 
+    # loss2, weights2 = var_wf.find_weights(4*np.sin(2*np.pi*X[:,1]),from_covariates=True,normalize_g=LSTSQ_SOLVER,only_loss=False)
 
+    # print(loss2, weights2)
+
+    # loss3, weights3 = var_wf.find_weights(np.sin(X[:,2]-X[:,1]),from_covariates=True,normalize_g=LSTSQ_SOLVER, only_loss=False)
+
+    # print(loss3, weights3)
+
+    loss5, weights5 = var_wf.find_weights(np.sin(X[:,1])/len_w,from_covariates=True,normalize_g=LSTSQ_SOLVER,only_loss=False)
+    print(loss5, weights5)
+
+    
+    target_weights_norm = target_weights / len_w
+    print(target_weights_norm)
+    # loss4 = var_wf._calculate_loss(4*np.sin(2*np.pi*X[:,1])/len_w,target_weights_norm, normalize=False)
+    loss4 = var_wf._calculate_loss(np.sin(X[:,1])/len_w,target_weights_norm, normalize=False)
+    print(loss4)
+
+    print(f"Starting evolution with population {gp_params['population_size']} and {gp_params['generations']} generations")
+    start = time.time()
     est = SymbolicRegressor(metric=var_fitness, **gp_params ,verbose=1, random_state=args.seed)
 
     est.fit(X, fake_y)
 
-
-
-    loss, weights = var_wf.find_weights(est.predict(X),from_covariates=True,normalize_g=False)
+    loss, weights = var_wf.find_weights(est.predict(X),from_covariates=True,normalize_g=LSTSQ_SOLVER, only_loss=False)
 
     linear_operator = LinearOperator.from_vector(weights, dimension, order, zero_partial=False)
-    print(f"{linear_operator.get_adjoint()} - {est._program} = 0")
+
+  
+    try:
+        eq, eqC = gp_to_pysym_with_coef(est)
+    except:
+        eq = est._program
+
+    print(f"{linear_operator.get_adjoint()} - {eq} = 0")
+
+    end = time.time()
+    print(f"Evolution finished in {end-start} seconds")
+
 
 
 

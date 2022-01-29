@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     INF_FLOAT = 9999999999999.9
 
-    LSTSQ_SOLVER = 'unit_L'
+    LSTSQ_SOLVER = 'unit_g'
 
     pdes = get_pdes(args.name)
 
@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     print("Initializing MSE Weights Finder")
     start = time.time()
-    mse_wf = MSEWeightsFinder(observed_dataset,args.field_index,observed_grid,dimension=dimension,order=order,engine=engine,**opt_params, seed=args.seed, calculate_svd=True)
+    mse_wf = MSEWeightsFinder(observed_dataset,args.field_index,observed_grid,dimension=dimension,order=order,engine=engine,**opt_params, seed=args.seed, calculate_svd=False)
     end = time.time()
     print(f"Weight Finder initialized in {end-start} seconds")
 

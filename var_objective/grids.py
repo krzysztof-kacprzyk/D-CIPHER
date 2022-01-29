@@ -27,6 +27,7 @@ class EquiPartGrid:
 
         self.shape = [samples_per_dim]*self.num_dims
 
+
         
         
     def by_axis(self):
@@ -46,6 +47,9 @@ class EquiPartGrid:
 
     def for_integration(self):
         return np.ones(self.shape) * np.prod(self.widths) / (self.samples_per_dim ** self.num_dims)
+    
+    def get_integration_constant(self):
+        return np.prod(self.widths) / (self.samples_per_dim ** self.num_dims)
 
 
 
