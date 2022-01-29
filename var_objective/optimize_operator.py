@@ -127,16 +127,9 @@ class VariationalWeightsFinder:
 
             y = np.reshape(g_integrals,(-1,))
 
-            num_samples = len(y)
+            loss, weights = self.weight_finder.solve(y,only_loss=only_loss,take_mean=True)
 
-            sol = self.weight_finder.solve(y,verbose=True)
-
-            if sol is None:
-                return (None,None)
-
-            loss = np.sum((np.dot(self.X,sol)-y) ** 2) / num_samples
-
-            return (loss,sol)
+            return (loss,weights)
 
            
                 
@@ -210,13 +203,9 @@ class MSEWeightsFinder:
 
             y = g_part
 
-            num_samples = len(y)
+            loss, weights = self.weight_finder.solve(y,only_loss=only_loss,take_mean=True)
 
-            sol = self.weight_finder.solve(y)
-
-            loss = np.sum((np.dot(self.X,sol)-y) ** 2) / num_samples
-
-            return (loss,sol)
+            return (loss,weights)
 
 
 

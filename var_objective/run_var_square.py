@@ -100,7 +100,7 @@ if __name__ == '__main__':
         if _check_if_zero(y_pred):
             return INF
 
-        loss, weights = var_wf.find_weights(y_pred, only_loss=False)
+        loss, weights = var_wf.find_weights(y_pred, only_loss=True)
         if loss is None:
             return INF
         return loss
