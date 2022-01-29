@@ -1,49 +1,10 @@
 import numpy as np
-import torch
 from itertools import product
 
 from var_objective.grids import EquiPartGrid
 from .differential_operator import LinearOperator
 from .derivative_estimators import all_derivatives
-from .utils_lstsq import UnitLstsqSVD, projective_lstsq, unit_lstsq_svd
-
-EPS = torch.tensor(0.0001)
-INF = torch.tensor(1000000)
-
-def normalize(x):
-    with torch.no_grad():
-        return x.div(torch.norm(x,2))
-
-
-   
-    
-class Model:
-
-    def __init__(self, derivative_tensor, g_tensor, alpha, beta, num_lower_order, homogeneous, norm_sum=False):
-        self.derivative_tensor = derivative_tensor
-        self.g_tensor = g_tensor
-        self.alpha = alpha
-        self.beta = beta
-        self.num_lower_order = num_lower_order
-        self.homogeneous = homogeneous
-        self.norm_sum = norm_sum
-
-    def loss(self, weights):
-        if self.homogeneous:
-            with torch.no_grad():
-                weights.div_(torch.norm(weights,2))
-        pred = torch.mul(weights, self.derivative_tensor).sum(-1) - self.g_tensor
-        if self.norm_sum:
-            square_loss = torch.pow(pred, 2.0).mean()
-        else:
-            square_loss = torch.pow(pred, 2.0).sum() 
-        l1_loss = torch.norm(weights,1)
-        min_loss = torch.max(torch.log(torch.pow(weights[self.num_lower_order:],2)+EPS))
-        # print(f"Sq: {square_loss} | l1: {l1_loss} | min: {min_loss}")
-        return square_loss + self.alpha * l1_loss  - self.beta * min_loss
-
-
-
+from .utils.lstsq_solver import UnitLstsqSVD
 
 class VariationalWeightsFinder:
 
@@ -64,7 +25,6 @@ class VariationalWeightsFinder:
         self.patience = patience
 
         np.random.seed(self.seed)
-        torch.manual_seed(self.seed)
 
         if len(self.index_limits) != self.basis.num_indexes:
             raise ValueError("Length of index_limits does not match num_indexes of basis")
@@ -113,10 +73,9 @@ class VariationalWeightsFinder:
         self.X = np.reshape(integrals,(-1,self.J))[:,1:]
         m, n = self.X.shape
         print(m,n)
-        self.loss_matrix = self.X @ np.linalg.inv(np.transpose(self.X) @ self.X) @ np.transpose(self.X)  - np.eye(m)
-        self.weight_finder = UnitLstsqSVD(self.X,offset=0.001)
+        self.weight_finder = UnitLstsqSVD(self.X)
 
-    def _calculate_loss(self, g_part, weights, normalize=True):
+    def _calculate_loss(self, g_part, weights):
         
         g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
 
@@ -133,17 +92,6 @@ class VariationalWeightsFinder:
 
         y = np.reshape(g_integrals,(-1,))
 
-        if normalize:
-
-            length = np.linalg.norm(y,2)
-            n = len(y)
-            if length == 0.0:
-                raise ValueError("Error. g_part cannot be 0")
-            else:
-                y = y / length
-                weights = weights / length
-            
-        print(weights)
         num_samples = len(y)
 
         loss = np.sum((np.dot(self.X,weights) - y) ** 2) / num_samples
@@ -152,145 +100,43 @@ class VariationalWeightsFinder:
 
 
 
-    def find_weights(self, g_part=None, from_covariates=True, normalize_g=None, only_loss=False):
+    def find_weights(self, g_part=None, only_loss=False):
 
         # np.random.seed(self.seed)
         # torch.manual_seed(self.seed)
-
-        # g_part_func should have shape (D,*self.full_grid.shape) or be None
 
         homogeneous = (g_part is None)
           
         if homogeneous:
             raise ValueError("Homogeneous case is not yet implemented")
-            # g_integrals = np.zeros((self.D, self.S))
-            # # else:
-            # #     if from_covariates:
-            # #         g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
-            # #     assert g_part.shape == (self.D,*self.full_grid.shape)
-
-            # #     g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
-            # #     assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
-
-            # #     g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
-            # #     assert g_integrals.shape == (self.D, self.S)
-
-            # integrals_tensor = torch.from_numpy(self.integrals[:,:,1:]) # shape: (D,S,J)
-
-            # model = Model(integrals_tensor,torch.from_numpy(g_integrals),self.alpha,self.beta,self.num_lower_order,homogeneous)
-
-            # weights = torch.randn(self.J-1, requires_grad=True)
-            # if self.optim_name == 'sgd':
-            #     optimizer = torch.optim.SGD([weights],**self.optim_params)
-            # elif self.optim_name == 'adam':
-            #     optimizer = torch.optim.Adam([weights],**self.optim_params)
-            # else:
-            #     raise ValueError(f'Unknown optimizer {self.optim_name}')
-
-            # prev_best_loss = INF
-            # prev_best_weights = torch.zeros_like(weights)
-            # epochs_no_improvement = 0
-            # counter = 0
-
-            # for i in range(self.num_epochs):
-            #     loss = model.loss(weights)
-            #     counter += 1
-
-            #     if loss >= prev_best_loss:
-            #         epochs_no_improvement += 1
-            #     else:
-            #         prev_best_loss = loss
-            #         with torch.no_grad():
-            #             prev_best_weights = torch.clone(weights)
-            #         epochs_no_improvement = 0
-
-            #     if epochs_no_improvement >= self.patience:
-            #         break
-
-            #     loss.backward()
-            #     optimizer.step()
-            #     optimizer.zero_grad()
-
-
-            # print(f"Loss: {prev_best_loss} | Epochs: {counter}")         
-            # print(f"Weights: {prev_best_weights}")
-            # target = torch.tensor([-1.0,-2.0])
-            # print(model.loss(target))
-            # return (prev_best_loss, prev_best_weights, None)
 
         else:
 
-            if normalize_g == 'unit_g':
+            g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
 
-                g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
+            assert g_part.shape == (self.D,*self.full_grid.shape)
 
-                assert g_part.shape == (self.D,*self.full_grid.shape)
+            g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
+            assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
 
-                g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
-                assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
+            if isinstance(self.full_grid, EquiPartGrid):
+                g_integrals = g_part.sum(axis=tuple(range(2, len(g_part.shape)))) * self.full_grid.get_integration_constant()
+            else:    
+                g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
+            assert g_integrals.shape == (self.D, self.S)
 
-                if isinstance(self.full_grid, EquiPartGrid):
-                    g_integrals = g_part.sum(axis=tuple(range(2, len(g_part.shape)))) * self.full_grid.get_integration_constant()
-                else:    
-                    g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
-                assert g_integrals.shape == (self.D, self.S)
+            y = np.reshape(g_integrals,(-1,))
 
-                y = np.reshape(g_integrals,(-1,))
+            num_samples = len(y)
 
-                length = np.linalg.norm(y,2)
-                n = len(y)
-                if length == 0.0:
-                    raise ValueError("Error. g_part cannot be 0")
-                else:
-                    y = y / length
-                
-                num_samples = len(y)
+            sol = self.weight_finder.solve(y,verbose=True)
 
-                if only_loss:
-                    
-                    loss = np.sum(np.dot(self.loss_matrix,y) ** 2) / num_samples
-                    return (loss,None)
+            if sol is None:
+                return (None,None)
 
-                else:
-                    
-                    weights = np.dot(np.linalg.inv(np.transpose(self.X) @ self.X) @ np.transpose(self.X),y)
-                    loss = np.sum((np.dot(self.X,weights) - y) ** 2)
-                    # weights, res, rank, s = np.linalg.lstsq(self.X,y,rcond=None)
-                    # if len(res) == 0:
-                    #     print("Issue with LSTSQ solver")
-                    #     loss = 1 / num_samples
-                    # else:
-                    #     loss = res[0] / num_samples
+            loss = np.sum((np.dot(self.X,sol)-y) ** 2) / num_samples
 
-                    return (loss,weights)
-
-            elif normalize_g == 'unit_L':
-
-                g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
-
-                assert g_part.shape == (self.D,*self.full_grid.shape)
-
-                g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
-                assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
-
-                if isinstance(self.full_grid, EquiPartGrid):
-                    g_integrals = g_part.sum(axis=tuple(range(2, len(g_part.shape)))) * self.full_grid.get_integration_constant()
-                else:    
-                    g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
-                assert g_integrals.shape == (self.D, self.S)
-
-                y = np.reshape(g_integrals,(-1,))
-
-                num_samples = len(y)
-
-                sol = self.weight_finder.solve(y,verbose=True)
-
-                if sol is None:
-                    return (None,None)
-
-                loss = np.sum((np.dot(self.X,sol)-y) ** 2) / num_samples
-
-                return (loss,sol)
+            return (loss,sol)
 
            
                 
@@ -300,7 +146,7 @@ class VariationalWeightsFinder:
 
 class MSEWeightsFinder:
 
-    def __init__(self, dataset, field_index, grid, dimension, order, engine, alpha=0.1, beta=0.1, optim_name='sgd', optim_params={'lr':0.01}, num_epochs=100, patience=10, seed=0, calculate_svd=False):
+    def __init__(self, dataset, field_index, grid, dimension, order, engine, alpha=0.1, beta=0.1, optim_name='sgd', optim_params={'lr':0.01}, num_epochs=100, patience=10, seed=0):
         self.dataset = dataset
         self.field_index = field_index
         self.grid = grid
@@ -317,7 +163,6 @@ class MSEWeightsFinder:
         self.found_weights = None
 
         np.random.seed(self.seed)
-        torch.manual_seed(self.seed)
 
         #TODO: check dataset shape and grid shape
 
@@ -329,7 +174,6 @@ class MSEWeightsFinder:
         if self.field_index >= self.N:
             raise ValueError(f"There is no field with index {self.field_index}")
             
-
         self.derivative_dataset = np.stack([all_derivatives(dataset[d,field_index],grid,dimension,order, self.engine) for d in range(self.D)], axis=0)
         assert self.derivative_dataset.shape == (self.D,self.J,*grid.shape)
 
@@ -344,20 +188,15 @@ class MSEWeightsFinder:
         self.X = np.reshape(derivative_part,(-1,self.J))[:,1:]
         m, n = self.X.shape
         print(f"Shape of the matrix: {m} x {n}")
-        self.loss_matrix = self.X @ np.linalg.inv(np.transpose(self.X) @ self.X) @ np.transpose(self.X)  - np.eye(m)
-
-        if calculate_svd:
-            self.weight_finder = UnitLstsqSVD(self.X)
+        
+        self.weight_finder = UnitLstsqSVD(self.X)
         
 
 
-    def find_weights(self, g_part=None, from_covariates=True, normalize_g=None, only_loss=False):
+    def find_weights(self, g_part=None, only_loss=False):
 
-        
         # np.random.seed(self.seed)
         # torch.manual_seed(self.seed)
-
-        # g_part_func should have shape (D,*self.full_grid.shape) or be None
 
         if g_part is None:
             homogeneous = True
@@ -366,126 +205,20 @@ class MSEWeightsFinder:
 
         if homogeneous:
             raise ValueError("Homogeneous case is not yet implemented")
-            # g_part = np.zeros((self.D, *self.grid.shape))
-
-            # assert g_part.shape == (self.D, *self.grid.shape)
-
-            # derivative_tensor = torch.from_numpy(np.moveaxis(self.derivative_dataset,1,-1))
-
-            # g_tensor = torch.from_numpy(g_part)
-
-
-            # model = Model(derivative_tensor,g_tensor,self.alpha,self.beta,self.num_lower_order,homogeneous,norm_sum=True)
-
-            # weights = torch.randn(self.J, requires_grad=True)
-            # if self.optim_name == 'sgd':
-            #     optimizer = torch.optim.SGD([weights],**self.optim_params)
-            # elif self.optim_name == 'adam':
-            #     optimizer = torch.optim.Adam([weights],**self.optim_params)
-            # else:
-            #     raise ValueError(f'Unknown optimizer {self.optim_name}')
-
-            # prev_best_loss = INF
-            # prev_best_weights = torch.zeros_like(weights)
-            # epochs_no_improvement = 0
-            # counter = 0
-            # for i in range(self.num_epochs):
-            #     loss = model.loss(weights)
-            #     counter += 1
-            #     # print(f"Epoch {i+1} | Loss: {loss}")
-
-            #     if loss >= prev_best_loss:
-            #         epochs_no_improvement += 1
-            #     else:
-            #         prev_best_loss = loss
-            #         with torch.no_grad():
-            #             prev_best_weights = torch.clone(weights)
-            #         epochs_no_improvement = 0
-
-            #     if epochs_no_improvement >= self.patience:
-            #         break
-
-            #     loss.backward()
-            #     optimizer.step()
-            #     optimizer.zero_grad()
-
-            # print(f"Loss: {prev_best_loss} | Epochs: {counter}")        
-            # print(f"Weights: {prev_best_weights}")
-            # # target = torch.tensor([0.0,1.0,-1.0])
-            # # print(normalize(target))
-            # # print(model.loss(target))
-            # return (prev_best_loss.item(), prev_best_weights, None)
-
-            return (0, None)
 
         else:
 
-            if normalize_g == 'unit_g':
-                length = np.linalg.norm(g_part,2)
-                n = len(g_part)
-                if length == 0.0:
-                    g_part[:] = 1.0
-                else:
-                    g_part = g_part / length
-                
-                # g_part = np.reshape(g_part, (self.D, *(self.grid.shape)))
+            y = g_part
 
-                y = g_part
+            num_samples = len(y)
 
-                num_samples = len(y)
+            sol = self.weight_finder.solve(y)
 
-                if only_loss:
-                    
-                    loss = np.sum(np.dot(self.loss_matrix,y) ** 2) / num_samples
-                    return (loss,None)
+            loss = np.sum((np.dot(self.X,sol)-y) ** 2) / num_samples
 
-                else:
-                    
-                    weights, res, rank, s = np.linalg.lstsq(self.X,y,rcond=None)
-                    loss = res[0] / num_samples
+            return (loss,sol)
 
-                    return (loss,weights)
 
-            elif normalize_g == 'unit_L':
-
-                y = g_part
-
-                num_samples = len(y)
-
-                sol = self.weight_finder.solve(y)
-
-                loss = np.sum((np.dot(self.X,sol)-y) ** 2) / num_samples
-
-                return (loss,sol)
-
-            elif normalize_g == 'projective':
-
-                g_part = np.reshape(g_part, (self.D, *(self.grid.shape)))
-
-                derivative_part = np.moveaxis(self.derivative_dataset,1,-1)
-
-                X = np.reshape(derivative_part,(-1,self.J))
-                y = np.reshape(g_part,(-1,))
-
-                sol, loss = projective_lstsq(X[:,1:],y)
-
-                return (loss,sol)
-
-            # elif normalize_g == 'scale_inv_loss':
-
-            #     g_part = np.reshape(g_part, (self.D, *(self.grid.shape)))
-
-            #     derivative_part = np.moveaxis(self.derivative_dataset,1,-1)
-
-            #     X = np.reshape(derivative_part,(-1,self.J))
-            #     y = np.reshape(g_part,(-1,))
-
-            #     a, res, rank, s = np.linalg.lstsq(X[:,1:],y,rcond=None)
-
-            #     l_a = np.linalg.norm(a,2)
-            #     l_y = np.linalg.norm(y,2)
-
-            #     loss = np.abs((np.dot(np.dot(X[:,1:],a),y))) / (l_a * l_y)
 
         
 

@@ -10,7 +10,7 @@ from .grids import EquiPartGrid
 from .generator import generate_fields
 from .interpolate import estimate_fields
 from .basis import FourierSine2D
-from .optimize_operator import MSEWeightsFinder, normalize
+from .optimize_operator import MSEWeightsFinder
 from .conditions import get_conditions_set
 from .config import get_optim_params, get_gp_params
 from .libs import SymbolicRegressor, make_fitness
@@ -49,12 +49,9 @@ if __name__ == '__main__':
 
     INF_FLOAT = 9999999999999.9
 
-    LSTSQ_SOLVER = 'unit_g'
-
     pdes = get_pdes(args.name)
 
     widths = [args.width] * 2
-
 
     observed_grid = EquiPartGrid(widths, args.frequency_per_dim)
 
@@ -90,7 +87,7 @@ if __name__ == '__main__':
         if _check_if_zero(y_pred):
             return INF
 
-        loss, weights = mse_wf.find_weights(y_pred,from_covariates=True, normalize_g=LSTSQ_SOLVER, only_loss=True)
+        loss, weights = mse_wf.find_weights(y_pred,only_loss=True)
 
         return loss
     
@@ -101,11 +98,11 @@ if __name__ == '__main__':
 
     gp_params = get_gp_params()
 
-    loss2, weights2 = mse_wf.find_weights(4*np.sin(2*np.pi*X[:,1]),from_covariates=True,normalize_g=LSTSQ_SOLVER)
+    loss2, weights2 = mse_wf.find_weights(4*np.sin(2*np.pi*X[:,1]),only_loss=False)
 
     print(loss2, weights2)
 
-    loss3, weights3 = mse_wf.find_weights(np.sin(-np.sin(2*X[:,1]-1) / 0.288),from_covariates=True,normalize_g=LSTSQ_SOLVER)
+    loss3, weights3 = mse_wf.find_weights(np.sin(-np.sin(2*X[:,1]-1) / 0.288),only_loss=False)
 
     print(loss3, weights3)
 
@@ -117,7 +114,7 @@ if __name__ == '__main__':
 
 
 
-    loss, weights = mse_wf.find_weights(est.predict(X),from_covariates=True,normalize_g=LSTSQ_SOLVER)
+    loss, weights = mse_wf.find_weights(est.predict(X),only_loss=False)
 
     linear_operator = LinearOperator.from_vector(weights, dimension, order, zero_partial=False)
     print(f"{linear_operator} - {est._program} = 0")
