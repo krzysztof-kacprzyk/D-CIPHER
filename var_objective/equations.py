@@ -2,9 +2,10 @@ from multiprocessing import Value
 from .differential_operator import LinearOperator, Partial
 from .population_models import SLM
 from .heat_equation import HeatEquationNeumann1D
-from sympy import Symbol, Function, symbols, sin, exp, pi
+from sympy import Symbol, Function, symbols, sin, exp, pi, lambdify
 from abc import ABC, abstractmethod
 import numpy as np
+import matplotlib.pyplot as plt
 
 def get_pdes(name, parameters=None):
     
@@ -58,6 +59,47 @@ class PDE(ABC):
 
     def __str__(self):
         return "\n".join([f"({L})u - {g} = 0" for L,g in self.get_expression()])
+
+    def get_expression_normalized(self):
+        equations = self.get_expression()
+        new_equations = []
+        for equation in equations:
+            L, g  = equation
+            length = L.get_length()
+            L = L.normalize()
+            g = g / length
+            new_equations.append((L,g))
+        return new_equations
+
+    def get_independent_variables(self):
+        variables = []
+        for i in range(self.M):
+            xi = symbols(f'x{i}',real=True)
+            variables.append(xi)
+        return variables
+    def get_dependent_variables(self):
+        variables = []
+        for i in range(self.N):
+            ui = symbols(f'u{i}',real=True)
+            variables.append(ui)
+        return variables
+    def get_all_variables(self):
+        return self.get_independent_variables() + self.get_dependent_variables()
+
+    
+    def numpify_g(self, g_symb):
+        variables = self.get_all_variables()
+        g_numpy = lambdify(variables, g_symb, 'numpy')
+        return g_numpy
+
+
+        
+    
+        
+
+
+
+
 
 
 class TestEquation1(PDE):
@@ -286,3 +328,14 @@ class Laplace2D(PDE):
 
         
     
+if __name__ == '__main__':
+
+    eq = TestEquation2()
+
+    g_part = eq.get_g_numpy(0,normalized=True)
+
+    t = np.linspace(0,2*np.pi,1000)
+
+    plt.plot(t,g_part(t,t,t))
+    plt.show()
+

@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     print("Initializing MSE Weights Finder")
     start = time.time()
-    mse_wf = MSEWeightsFinder(observed_dataset,args.field_index,observed_grid,dimension=dimension,order=order,engine=engine,**opt_params, seed=args.seed, calculate_svd=False)
+    mse_wf = MSEWeightsFinder(observed_dataset,args.field_index,observed_grid,dimension=dimension,order=order,engine=engine,**opt_params, seed=args.seed)
     end = time.time()
     print(f"Weight Finder initialized in {end-start} seconds")
 
@@ -101,13 +101,30 @@ if __name__ == '__main__':
 
     gp_params = get_gp_params()
 
-    loss2, weights2 = mse_wf.find_weights(4*np.sin(2*np.pi*X[:,1]),only_loss=False)
+    L_target, g_target = pdes.get_expression_normalized()[args.field_index]
+    target_weights = L_target.get_adjoint().vectorize()[1:] # exclude zero-order partial
+    target_g_numpy = pdes.numpify_g(g_target)
+    variables_part = [X[:,i] for i in range(pdes.M+pdes.N)]
 
-    print(loss2, weights2)
+    target_g_part = target_g_numpy(*variables_part)
 
-    loss3, weights3 = mse_wf.find_weights(np.sin(-np.sin(2*X[:,1]-1) / 0.288),only_loss=False)
+    # Check if target_g_part is an array
+    if not hasattr(target_g_part, "__len__"):
+        # This means that it is a scalar
+        target_g_part = float(target_g_part)
+        if target_g_part == 0.0:
+            target_g_part = None
+        else:
+            target_g_part = np.ones(X.shape[0]) * target_g_part
+            # TODO: maybe in the future leverage the fact that it is a scalar
+    
+    target_loss = mse_wf._calculate_loss(target_g_part, target_weights)
+    print(f"Loss with target weights and target g_part: {target_loss}")
+    print(f"Target weights: {target_weights}")
 
-    print(loss3, weights3)
+    best_found_loss, best_found_weights = mse_wf.find_weights(target_g_part, only_loss=False)
+    print(f"Loss for the best found weights: {best_found_loss}")
+    print(f"Best found weights: {best_found_weights}")
 
     print(f"Starting evolution with population {gp_params['population_size']} and {gp_params['generations']} generations")
     start = time.time()

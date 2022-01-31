@@ -14,7 +14,7 @@ class UnitLstsqSVD:
         self.A = A
 
         m, n = self.A.shape
-        self.n = n
+        self.m = m
 
         u,s,vh = np.linalg.svd(A, full_matrices=True)
 
@@ -41,7 +41,7 @@ class UnitLstsqSVD:
         # Take the square of the smallest singular value
         loss = self.s_full2[-1]
         if take_mean:
-            loss /= self.n
+            loss /= self.m
 
         if only_loss:
             return (loss,None)
@@ -101,7 +101,7 @@ class UnitLstsqSVD:
             loss = np.sum(b**2) - np.sum(z2 * ((self.s_full2 + 2*l) / ((self.s_full2 + l) ** 2 )))
 
             if take_mean:
-                loss /= len(b)
+                loss /= self.m
 
             return (loss, None)
         else:
@@ -120,7 +120,7 @@ class UnitLstsqSVD:
             loss = np.sum((np.dot(self.A, x) - b) ** 2)
 
             if take_mean:
-                loss /= len(b)
+                loss /= self.m
 
             return (loss, x) 
        

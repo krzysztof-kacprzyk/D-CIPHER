@@ -94,9 +94,6 @@ class LinearOperator():
             partials_with_coeffs.append(f"{self.coeffs[i]}*{self.partials[i]}")
         return "+".join(partials_with_coeffs)
         
-        
-
-
     def vectorize(self):
         size = sum([_num_combi(n,self.dimension) for n in range(self.order+1)])
         encoded = np.zeros(size)
@@ -105,6 +102,12 @@ class LinearOperator():
             encoded[index] = self.coeffs[i]
         
         return encoded
+
+    def get_length(self):
+        result = 0
+        for coeff in self.coeffs:
+            result += (coeff ** 2)
+        return np.sqrt(result)
     
 
     def from_vector(vector, dimension, order, zero_partial=True):
@@ -132,9 +135,6 @@ class LinearOperator():
                 new_coeffs.append(-coeff)
         return LinearOperator(new_coeffs, self.partials)
 
-
-        
-
     def get_vector_length(dimension, order):
         return sum([_num_combi(n,dimension) for n in range(order+1)])
 
@@ -147,6 +147,14 @@ class LinearOperator():
                 partials.append(partial)
                 partial = partial.next_partial()
         return partials
+
+    def normalize(self):
+        new_coeffs = []
+        length = self.get_length()
+        for coeff in self.coeffs:
+            new_coeffs.append(coeff / length)
+        return LinearOperator(new_coeffs, self.partials)
+
 
 # p = Partial([3,0,0,0])
 # for i in range(20):

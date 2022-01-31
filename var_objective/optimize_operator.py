@@ -72,15 +72,14 @@ class VariationalWeightsFinder:
 
         self.X = np.reshape(integrals,(-1,self.J))[:,1:]
         m, n = self.X.shape
-        self.n = n
-        print(m,n)
+        self.m = m
         self.weight_finder = UnitLstsqSVD(self.X)
 
     def _calculate_loss(self, g_part, weights):
 
         if g_part is None:
 
-            loss = np.sum(np.dot(self.X,weights) ** 2) / self.n
+            loss = np.sum(np.dot(self.X,weights) ** 2) / self.m
 
             return loss
 
@@ -100,9 +99,7 @@ class VariationalWeightsFinder:
 
         y = np.reshape(g_integrals,(-1,))
 
-        num_samples = len(y)
-
-        loss = np.sum((np.dot(self.X,weights) - y) ** 2) / num_samples
+        loss = np.sum((np.dot(self.X,weights) - y) ** 2) / self.m
     
         return loss
 
@@ -189,9 +186,21 @@ class MSEWeightsFinder:
         derivative_part = np.moveaxis(self.derivative_dataset,1,-1)
         self.X = np.reshape(derivative_part,(-1,self.J))[:,1:]
         m, n = self.X.shape
-        print(f"Shape of the matrix: {m} x {n}")
+        self.m = m
         
         self.weight_finder = UnitLstsqSVD(self.X)
+
+    def _calculate_loss(self, g_part, weights):
+
+        if g_part is None:
+
+            loss = np.sum(np.dot(self.X,weights) ** 2) / self.m
+
+            return loss
+
+        loss = np.sum((np.dot(self.X,weights) - g_part) ** 2) / self.m
+    
+        return loss
         
 
 
