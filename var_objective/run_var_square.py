@@ -98,11 +98,13 @@ if __name__ == '__main__':
             return 0.0
 
         if _check_if_zero(y_pred):
-            return INF
+            loss, weights = var_wf.find_weights(None, only_loss=True)
+        else:
+            loss, weights = var_wf.find_weights(y_pred, only_loss=True)
 
-        loss, weights = var_wf.find_weights(y_pred, only_loss=True)
         if loss is None:
             return INF
+
         return loss
     
     X = grid_and_fields_to_covariates(var_wf.grid_and_fields)
@@ -115,8 +117,6 @@ if __name__ == '__main__':
     target_weights = pdes.get_expression()[args.field_index][0].get_adjoint().vectorize()[1:]
     print(target_weights)
     len_w = np.linalg.norm(target_weights,2)
-    print(len_w)
-
 
     # loss2, weights2 = var_wf.find_weights(4*np.sin(2*np.pi*X[:,1]), only_loss=False)
 
@@ -126,14 +126,18 @@ if __name__ == '__main__':
 
     # print(loss3, weights3)
 
-    loss5, weights5 = var_wf.find_weights(np.sin(X[:,1])/len_w,only_loss=False)
+    # loss5, weights5 = var_wf.find_weights(np.sin(X[:,1])/len_w,only_loss=False)
+    # print(loss5, weights5)
+
+    loss5, weights5 = var_wf.find_weights(None,only_loss=False)
     print(loss5, weights5)
 
     
     target_weights_norm = target_weights / len_w
     print(target_weights_norm)
     # loss4 = var_wf._calculate_loss(4*np.sin(2*np.pi*X[:,1])/len_w,target_weights_norm)
-    loss4 = var_wf._calculate_loss(np.sin(X[:,1])/len_w,target_weights_norm)
+    # loss4 = var_wf._calculate_loss(np.sin(X[:,1])/len_w,target_weights_norm)
+    loss4 = var_wf._calculate_loss(None,target_weights_norm)
     print(loss4)
 
     print(f"Starting evolution with population {gp_params['population_size']} and {gp_params['generations']} generations")

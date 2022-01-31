@@ -85,9 +85,12 @@ if __name__ == '__main__':
             return 0.0
 
         if _check_if_zero(y_pred):
-            return INF
+            loss, weights = mse_wf.find_weights(None,only_loss=True)
+        else:
+            loss, weights = mse_wf.find_weights(y_pred,only_loss=True)
 
-        loss, weights = mse_wf.find_weights(y_pred,only_loss=True)
+        if loss is None:
+            return INF
 
         return loss
     

@@ -14,6 +14,7 @@ class UnitLstsqSVD:
         self.A = A
 
         m, n = self.A.shape
+        self.n = n
 
         u,s,vh = np.linalg.svd(A, full_matrices=True)
 
@@ -27,10 +28,34 @@ class UnitLstsqSVD:
 
         self.s_full2 = s_full ** 2
 
+        self.v_last = vh[-1,:].flatten()
+
+    def _check_if_zero(vector):
+        if np.sum(vector == 0.0) == len(vector):
+            return True
+        else:
+            return False
+
+    def solve_homogeneous(self, only_loss=False, take_mean=True):
+
+        # Take the square of the smallest singular value
+        loss = self.s_full2[-1]
+        if take_mean:
+            loss /= self.n
+
+        if only_loss:
+            return (loss,None)
+        else:
+            x = self.v_last
+            return (loss,x)
 
     def solve(self,b,tol=0.01,only_loss=False,take_mean=True):
 
-        np.set_printoptions(precision=20)
+        if b is None:
+            return self.solve_homogeneous(only_loss=only_loss, take_mean=take_mean)
+        
+        if UnitLstsqSVD._check_if_zero(b):
+            return self.solve_homogeneous(only_loss=only_loss, take_mean=take_mean)
 
         z = np.dot(self.main_part,b)
         z2 = z ** 2

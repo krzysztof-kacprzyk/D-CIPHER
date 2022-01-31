@@ -72,10 +72,18 @@ class VariationalWeightsFinder:
 
         self.X = np.reshape(integrals,(-1,self.J))[:,1:]
         m, n = self.X.shape
+        self.n = n
         print(m,n)
         self.weight_finder = UnitLstsqSVD(self.X)
 
     def _calculate_loss(self, g_part, weights):
+
+        if g_part is None:
+
+            loss = np.sum(np.dot(self.X,weights) ** 2) / self.n
+
+            return loss
+
         
         g_part = np.reshape(g_part, (self.D, *(self.full_grid.shape)))
 
@@ -105,10 +113,11 @@ class VariationalWeightsFinder:
         # np.random.seed(self.seed)
         # torch.manual_seed(self.seed)
 
-        homogeneous = (g_part is None)
-          
-        if homogeneous:
-            raise ValueError("Homogeneous case is not yet implemented")
+        if g_part is None:
+
+            loss, weights = self.weight_finder.solve(None,only_loss=only_loss,take_mean=True)
+
+            return (loss,weights)
 
         else:
 
@@ -191,21 +200,11 @@ class MSEWeightsFinder:
         # np.random.seed(self.seed)
         # torch.manual_seed(self.seed)
 
-        if g_part is None:
-            homogeneous = True
-        else:
-            homogeneous = False
+        y = g_part
 
-        if homogeneous:
-            raise ValueError("Homogeneous case is not yet implemented")
+        loss, weights = self.weight_finder.solve(y,only_loss=only_loss,take_mean=True)
 
-        else:
-
-            y = g_part
-
-            loss, weights = self.weight_finder.solve(y,only_loss=only_loss,take_mean=True)
-
-            return (loss,weights)
+        return (loss,weights)
 
 
 
