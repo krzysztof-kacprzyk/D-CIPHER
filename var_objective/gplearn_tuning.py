@@ -10,7 +10,7 @@ from .grids import EquiPartGrid
 from .generator import generate_fields
 from .interpolate import estimate_fields
 from .basis import FourierSine2D
-from .optimize_operator import MSEWeightsFinder, normalize
+from .optimize_operator import MSEWeightsFinder
 from .conditions import get_conditions_set
 from .config import get_optim_params, get_gp_params
 from .libs import SymbolicRegressor, make_fitness
@@ -23,7 +23,7 @@ import sympy
 import pandas as pd
 from copy import deepcopy
 
-INF_FLOAT = 9999999999999.9
+INF_FLOAT = 0.9e+300
 
 def grid_and_fields_to_covariates(grid_and_fields):
 
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     parser.add_argument('--generations', nargs='+', default=[20], type=int)
     parser.add_argument('--tournament_size', nargs='+', default=[20], type=int)
     parser.add_argument('--parsimony_coefficient', nargs='+', default=[0.001], type=float)
-    parser.add_argument('--keep_probs_fixed',action='store_true')
+    # parser.add_argument('--keep_probs_fixed',action='store_true')
 
     args = parser.parse_args()
 
@@ -130,9 +130,12 @@ if __name__ == '__main__':
             return 0.0
 
         if _check_if_zero(y_pred):
-            return INF_FLOAT
+            loss, weights = mse_wf.find_weights(None,only_loss=True)
+        else:
+            loss, weights = mse_wf.find_weights(y_pred,only_loss=True)
 
-        loss, weights = mse_wf.find_weights(y_pred,from_covariates=True, normalize_g='unit_g', only_loss=True)
+        if loss is None:
+            return INF_FLOAT
 
         return loss
     
@@ -145,24 +148,21 @@ if __name__ == '__main__':
         'population_size':args.population_size,
         'generations':args.generations,
         'tournament_size':args.tournament_size,
-        # 'p_crossover':[0.01,0.1,0.5,0.9],
-        # 'p_subtree_mutation':[0.001,0.01,0.1,0.2],
-        # 'p_hoist_mutation':[0.001,0.01,0.1,0.2],
-        # 'p_point_mutation':[0.001,0.01,0.1,0.2],
-        'parsimony_coefficient':args.parsimony_coefficient
+        'p_crossover':[0.6,0.7,0.8],
+        'p_subtree_mutation':[0.05,0.1,0.15],
+        'p_hoist_mutation':[0.02,0.05,0.07],
+        'p_point_mutation':[0.05,0.1,0.15],
+        'parsimony_coefficient':args.parsimony_coefficient,
+        'patience':[10]
     }
-
-    gp_params = get_gp_params()
-    loss2, weights2 = mse_wf.find_weights(4*np.sin(2*np.pi*X[:,1]),from_covariates=True,normalize_g='unit_g', only_loss=False)
-    print(loss2, weights2)
 
     np.random.seed(SEED)
 
-    seeds = [np.random.randint(0,999999999) for i in range(NUM_TESTS)]
+    # seeds = [np.random.randint(0,999999999) for i in range(NUM_TESTS)]
 
     parameter_grid = ParameterGrid(gp_parameters_values)
 
-    params_list = np.random.choice(list(parameter_grid), size=NUM_TESTS, replace=(not args.keep_probs_fixed))
+    params_list = np.random.choice(list(parameter_grid), size=NUM_TESTS, replace=False)
 
     results = []
     used_params = []
@@ -172,40 +172,41 @@ if __name__ == '__main__':
 
     dt = datetime.now().strftime("%d-%m-%YT%H.%M.%S")
 
-    for index, _param in enumerate(params_list):
+    for index, param in enumerate(params_list):
         
-        param = deepcopy(_param)
+        # param = deepcopy(_param)
         
         start = time.time()
 
-        np.random.seed(seeds[index])
+        # np.random.seed(seeds[index])
 
-        if args.keep_probs_fixed:
-            p_cross = 0.9
-            p_subtree = 0.01
-            p_hoist = 0.01
-            p_point = 0.01
-        else:
-            sum = 2
-            while sum > 1:
-                p_cross  = np.random.rand()
-                p_subtree = np.random.rand()
-                p_hoist = np.random.rand()
-                p_point = np.random.rand() 
-                sum = p_cross + p_subtree + p_hoist + p_point
+        # if args.keep_probs_fixed:
+        #     p_cross = 0.9
+        #     p_subtree = 0.01
+        #     p_hoist = 0.01
+        #     p_point = 0.01
+        # else:
+        #     sum = 2
+        #     while sum > 1:
+        #         p_cross  = np.random.rand()
+        #         p_subtree = np.random.rand()
+        #         p_hoist = np.random.rand()
+        #         p_point = np.random.rand() 
+        #         sum = p_cross + p_subtree + p_hoist + p_point
             
-        param['p_crossover'] = p_cross
-        param['p_subtree_mutation'] = p_subtree
-        param['p_hoist_mutation'] = p_hoist
-        param['p_point_mutation'] = p_point
+        # param['p_crossover'] = p_cross
+        # param['p_subtree_mutation'] = p_subtree
+        # param['p_hoist_mutation'] = p_hoist
+        # param['p_point_mutation'] = p_point
 
+        print(f"Experiment {index+1} out of {len(params_list)}")
         print(f"Using {param}")
 
         
         est = SymbolicRegressor(metric=var_fitness, **param ,verbose=1, random_state=SEED, function_set=('add', 'sub', 'mul', 'div','sin', 'log','exp'))
         est.fit(X, fake_y)
         
-        loss, weights = mse_wf.find_weights(est.predict(X),from_covariates=True, normalize_g='unit_g', only_loss=False)
+        loss, weights = mse_wf.find_weights(est.predict(X),only_loss=False)
         print(est._program)
         try:
             eq, eqC = gp_to_pysym_with_coef(est)
