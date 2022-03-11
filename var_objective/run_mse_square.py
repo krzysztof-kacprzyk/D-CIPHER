@@ -14,6 +14,7 @@ from .optimize_operator import MSEWeightsFinder
 from .conditions import get_conditions_set
 from .config import get_optim_params, get_gp_params
 from .libs import SymbolicRegressor, make_fitness
+from var_objective.utils.gp_utils import gp_to_pysym_with_coef
 
 INF = 99999999.9
 
@@ -102,7 +103,7 @@ if __name__ == '__main__':
     gp_params = get_gp_params()
 
     L_target, g_target = pdes.get_expression_normalized()[args.field_index]
-    target_weights = L_target.get_adjoint().vectorize()[1:] # exclude zero-order partial
+    target_weights = L_target.vectorize()[1:] # exclude zero-order partial
     target_g_numpy = pdes.numpify_g(g_target)
     variables_part = [X[:,i] for i in range(pdes.M+pdes.N)]
 
@@ -137,7 +138,15 @@ if __name__ == '__main__':
     loss, weights = mse_wf.find_weights(est.predict(X),only_loss=False)
 
     linear_operator = LinearOperator.from_vector(weights, dimension, order, zero_partial=False)
-    print(f"{linear_operator} - {est._program} = 0")
+
+    try:
+        eq, eqC = gp_to_pysym_with_coef(est)
+    except:
+        eq = est._program
+
+    print(f"Found: {linear_operator} - {eq} = 0")
+
+    print(f"Expected: {L_target} - {g_target} = 0")
 
     end = time.time()
     print(f"Evolution finished in {end-start} seconds")

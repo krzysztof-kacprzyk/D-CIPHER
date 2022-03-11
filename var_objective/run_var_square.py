@@ -155,7 +155,9 @@ if __name__ == '__main__':
     except:
         eq = est._program
 
-    print(f"{linear_operator.get_adjoint()} - {eq} = 0")
+    print(f"Found {linear_operator.get_adjoint()} - {eq} = 0")
+
+    print(f"Expected: {L_target} - {g_target} = 0")
 
     end = time.time()
     print(f"Evolution finished in {end-start} seconds")
