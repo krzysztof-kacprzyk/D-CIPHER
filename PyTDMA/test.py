@@ -7,7 +7,7 @@ import numpy as np
 import scipy.sparse
 
 # solver
-from tdma import tdma
+from .tdma import tdma
 
 
 def test_tdma(n):
