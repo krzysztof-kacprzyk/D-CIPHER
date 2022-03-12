@@ -15,12 +15,15 @@ def get_gp_params():
         'population_size': 5000,
         'function_set':('add', 'sub', 'mul', 'div', 'sin', 'exp','log'),
         'generations':20,
-        'parsimony_coefficient': 1e-20,
-        'tournament_size':50,
+        'parsimony_coefficient': 1e-3,
+        'tournament_size': 20,
         # 'p_crossover': 0.206322262,
         # 'p_subtree_mutation':0.053164874,
         # 'p_hoist_mutation':0.368744818,
         # 'p_point_mutation':0.257603826
+        'n_jobs':-1,
+        'patience':20,
+        'best_so_far':True,
     }
     return dic
 

@@ -38,9 +38,16 @@ def _check_if_zero(vector):
     else:
         return False
 
+def log_print(msg):
+    print(msg)
+    log_file_name = "log.txt" 
+    with open(log_file_name, "a") as f:
+        f.write(f"{msg}\n")
+
+
 def save_checkpoint(_dt, seed, _results, _used_params, _programmes, _programme_lengths):
     min_i = np.argmin(_results)
-    print(f"Smallest loss: {_results[min_i]} with parameters {_used_params[min_i]}")
+    log_print(f"Smallest loss: {_results[min_i]} with parameters {_used_params[min_i]}")
     to_save = (_results, _used_params, _programmes, _programme_lengths)
     name_pickle = f"results/gplearn_tuning_{_dt}.p"
     name_txt = f"results/gplearn_tuning_{_dt}.txt"
@@ -102,12 +109,12 @@ if __name__ == '__main__':
 
     conditions = get_conditions_set(CONDITIONS_SET)
 
-    print(f"Seed set to {SEED}")
-    print(f"Generating dataset of {PDES_NAME} on a grid with width {WIDTH}, frequency per dim {FREQUENCY_PER_DIM}, noise ratio {NOISE_RATIO} and using conditions set {CONDITIONS_SET}")
+    log_print(f"Seed set to {SEED}")
+    log_print(f"Generating dataset of {PDES_NAME} on a grid with width {WIDTH}, frequency per dim {FREQUENCY_PER_DIM}, noise ratio {NOISE_RATIO} and using conditions set {CONDITIONS_SET}")
     start = time.time()
     observed_dataset = generate_fields(pdes, conditions, observed_grid, NOISE_RATIO, seed=SEED)
     end = time.time()
-    print(f"Observed dataset generated in {end-start} seconds")
+    log_print(f"Observed dataset generated in {end-start} seconds")
 
     dimension = pdes.get_expression()[FIELD_INDEX][0].dimension
     order = pdes.get_expression()[FIELD_INDEX][0].order
@@ -116,11 +123,11 @@ if __name__ == '__main__':
 
     engine = get_diff_engine(DIFF_ENGINE)
 
-    print("Initializing MSE Weights Finder")
+    log_print("Initializing MSE Weights Finder")
     start = time.time()
     mse_wf = MSEWeightsFinder(observed_dataset,FIELD_INDEX,observed_grid,dimension=dimension,order=order,engine=engine,**opt_params, seed=SEED)
     end = time.time()
-    print(f"Weight Finder initialized in {end-start} seconds")
+    log_print(f"Weight Finder initialized in {end-start} seconds")
 
 
     def _mse_fitness(y, y_pred, w):
@@ -148,12 +155,12 @@ if __name__ == '__main__':
         'population_size':args.population_size,
         'generations':args.generations,
         'tournament_size':args.tournament_size,
-        'p_crossover':[0.6,0.7,0.8],
-        'p_subtree_mutation':[0.05,0.1,0.15],
-        'p_hoist_mutation':[0.02,0.05,0.07],
-        'p_point_mutation':[0.05,0.1,0.15],
+        'p_crossover':[0.6,0.7,0.8,0.9],
+        'p_subtree_mutation':[0.01,0.05,0.1,0.15],
+        'p_hoist_mutation':[0.01,0.02,0.05,0.07],
+        'p_point_mutation':[0.01,0.05,0.1,0.15],
         'parsimony_coefficient':args.parsimony_coefficient,
-        'patience':[10]
+        'patience':[20]
     }
 
     np.random.seed(SEED)
@@ -173,8 +180,16 @@ if __name__ == '__main__':
     dt = datetime.now().strftime("%d-%m-%YT%H.%M.%S")
 
     for index, param in enumerate(params_list):
-        
+
+
+        log_print(f"Experiment {index+1} out of {len(params_list)}")
+        log_print(f"Using {param}")
+
         # param = deepcopy(_param)
+
+        if param['p_crossover'] + param['p_subtree_mutation'] + param['p_hoist_mutation'] + param['p_point_mutation'] >= 1.0:
+            log_print("This parameters are invalid. No experiment will be carried out")
+            continue
         
         start = time.time()
 
@@ -199,15 +214,11 @@ if __name__ == '__main__':
         # param['p_hoist_mutation'] = p_hoist
         # param['p_point_mutation'] = p_point
 
-        print(f"Experiment {index+1} out of {len(params_list)}")
-        print(f"Using {param}")
-
-        
-        est = SymbolicRegressor(metric=var_fitness, **param ,verbose=1, random_state=SEED, function_set=('add', 'sub', 'mul', 'div','sin', 'log','exp'))
+        est = SymbolicRegressor(metric=var_fitness, **param ,verbose=1, random_state=SEED, function_set=('add', 'sub', 'mul', 'div','sin', 'log','exp'), n_jobs=-1, best_so_far=True)
         est.fit(X, fake_y)
         
         loss, weights = mse_wf.find_weights(est.predict(X),only_loss=False)
-        print(est._program)
+        log_print(est._program)
         try:
             eq, eqC = gp_to_pysym_with_coef(est)
         except:
@@ -219,8 +230,8 @@ if __name__ == '__main__':
 
         end = time.time()
 
-        print(f"{weights} - {sympy.simplify(eq)} = 0")
-        print(f"The evolution took {end-start} seconds")
+        log_print(f"{weights} - ({eq}) = 0")
+        log_print(f"The evolution took {end-start} seconds")
 
         save_checkpoint(dt, SEED, results, used_params, programmes, programme_lengths)
 
