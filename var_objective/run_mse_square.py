@@ -67,14 +67,12 @@ if __name__ == '__main__':
 
     dimension = pdes.get_expression()[args.field_index][0].dimension
     order = pdes.get_expression()[args.field_index][0].order
-   
-    opt_params = get_optim_params()
 
     engine = get_diff_engine(args.diff_engine)
 
     print("Initializing MSE Weights Finder")
     start = time.time()
-    mse_wf = MSEWeightsFinder(observed_dataset,args.field_index,observed_grid,dimension=dimension,order=order,engine=engine,**opt_params, seed=args.seed)
+    mse_wf = MSEWeightsFinder(observed_dataset,args.field_index,observed_grid,dimension=dimension,order=order,engine=engine,optim_engine='svd',seed=args.seed)
     end = time.time()
     print(f"Weight Finder initialized in {end-start} seconds")
 
@@ -86,9 +84,9 @@ if __name__ == '__main__':
             return 0.0
 
         if _check_if_zero(y_pred):
-            loss, weights = mse_wf.find_weights(None,only_loss=True)
+            loss, weights = mse_wf.find_weights(None)
         else:
-            loss, weights = mse_wf.find_weights(y_pred,only_loss=True)
+            loss, weights = mse_wf.find_weights(y_pred)
 
         if loss is None:
             return INF
@@ -123,7 +121,7 @@ if __name__ == '__main__':
     print(f"Loss with target weights and target g_part: {target_loss}")
     print(f"Target weights: {target_weights}")
 
-    best_found_loss, best_found_weights = mse_wf.find_weights(target_g_part, only_loss=False)
+    best_found_loss, best_found_weights = mse_wf.find_weights(target_g_part)
     print(f"Loss for the best found weights: {best_found_loss}")
     print(f"Best found weights: {best_found_weights}")
 
@@ -135,7 +133,7 @@ if __name__ == '__main__':
 
 
 
-    loss, weights = mse_wf.find_weights(est.predict(X),only_loss=False)
+    loss, weights = mse_wf.find_weights(est.predict(X))
 
     linear_operator = LinearOperator.from_vector(weights, dimension, order, zero_partial=False)
 

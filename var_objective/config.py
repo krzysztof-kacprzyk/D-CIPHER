@@ -21,9 +21,9 @@ def get_gp_params():
         # 'p_subtree_mutation':0.053164874,
         # 'p_hoist_mutation':0.368744818,
         # 'p_point_mutation':0.257603826
-        'n_jobs':-1,
+        'n_jobs':1,
         'patience':20,
-        'best_so_far':True,
+        'best_so_far':False,
     }
     return dic
 

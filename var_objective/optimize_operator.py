@@ -4,11 +4,11 @@ from itertools import product
 from var_objective.grids import EquiPartGrid
 from .differential_operator import LinearOperator
 from .derivative_estimators import all_derivatives
-from .utils.lstsq_solver import UnitLstsqSVD
+from .utils.lstsq_solver import UnitLstsqSDR, UnitLstsqSVD
 
 class VariationalWeightsFinder:
 
-    def __init__(self,estimated_dataset, field_index, full_grid, dimension, order, basis, index_limits, alpha=0.1, beta=0.1, optim_name='sgd', optim_params={'lr':0.01}, num_epochs=100, patience=10,  seed=0):
+    def __init__(self,estimated_dataset, field_index, full_grid, dimension, order, basis, index_limits, optim_engine='svd', seed=0):
         self.estimated_dataset = estimated_dataset
         self.field_index = field_index
         self.full_grid = full_grid
@@ -16,13 +16,8 @@ class VariationalWeightsFinder:
         self.order = order
         self.basis = basis
         self.index_limits = index_limits
-        self.alpha = alpha
-        self.beta = beta
         self.seed = seed
-        self.optim_name = optim_name
-        self.optim_params = optim_params
-        self.num_epochs = num_epochs
-        self.patience = patience
+
 
         np.random.seed(self.seed)
 
@@ -73,7 +68,10 @@ class VariationalWeightsFinder:
         self.X = np.reshape(integrals,(-1,self.J))[:,1:]
         m, n = self.X.shape
         self.m = m
-        self.weight_finder = UnitLstsqSVD(self.X)
+        if optim_engine == 'svd':
+            self.weight_finder = UnitLstsqSVD(self.X)
+        elif optim_engine == 'sdr':
+            self.weight_finder = UnitLstsqSDR(self.X)
 
     def _calculate_loss(self, g_part, weights):
 
@@ -105,14 +103,14 @@ class VariationalWeightsFinder:
 
 
 
-    def find_weights(self, g_part=None, only_loss=False):
+    def find_weights(self, g_part=None):
 
         # np.random.seed(self.seed)
         # torch.manual_seed(self.seed)
 
         if g_part is None:
 
-            loss, weights = self.weight_finder.solve(None,only_loss=only_loss,take_mean=True)
+            loss, weights = self.weight_finder.solve(None,take_mean=True)
 
             return (loss,weights)
 
@@ -132,8 +130,8 @@ class VariationalWeightsFinder:
             assert g_integrals.shape == (self.D, self.S)
 
             y = np.reshape(g_integrals,(-1,))
-
-            loss, weights = self.weight_finder.solve(y,only_loss=only_loss,take_mean=True)
+             
+            loss, weights = self.weight_finder.solve(y,take_mean=True)
 
             return (loss,weights)
 
@@ -145,19 +143,13 @@ class VariationalWeightsFinder:
 
 class MSEWeightsFinder:
 
-    def __init__(self, dataset, field_index, grid, dimension, order, engine, alpha=0.1, beta=0.1, optim_name='sgd', optim_params={'lr':0.01}, num_epochs=100, patience=10, seed=0):
+    def __init__(self, dataset, field_index, grid, dimension, order, engine, optim_engine='svd', seed=0):
         self.dataset = dataset
         self.field_index = field_index
         self.grid = grid
         self.dimension = dimension
         self.order = order
-        self.alpha = alpha
-        self.beta = beta
         self.seed = seed
-        self.optim_name = optim_name
-        self.optim_params = optim_params
-        self.num_epochs = num_epochs
-        self.patience = patience
         self.engine = engine
         self.found_weights = None
 
@@ -188,7 +180,10 @@ class MSEWeightsFinder:
         m, n = self.X.shape
         self.m = m
         
-        self.weight_finder = UnitLstsqSVD(self.X)
+        if optim_engine == 'svd':
+            self.weight_finder = UnitLstsqSVD(self.X)
+        elif optim_engine == 'sdr':
+            self.weight_finder = UnitLstsqSDR(self.X)
 
     def _calculate_loss(self, g_part, weights):
 
@@ -204,14 +199,14 @@ class MSEWeightsFinder:
         
 
 
-    def find_weights(self, g_part=None, only_loss=False):
+    def find_weights(self, g_part=None):
 
         # np.random.seed(self.seed)
         # torch.manual_seed(self.seed)
 
         y = g_part
 
-        loss, weights = self.weight_finder.solve(y,only_loss=only_loss,take_mean=True)
+        loss, weights = self.weight_finder.solve(y,take_mean=True)
 
         return (loss,weights)
 

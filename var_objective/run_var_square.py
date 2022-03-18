@@ -82,12 +82,10 @@ if __name__ == '__main__':
     elif args.basis == '2spline2D':
         basis = BSplineFreq2D(widths, 2)
         index_limits = [args.max_ind_basis] * 2
-   
-    opt_params = get_optim_params()
 
     print("Initializing Variational Weights Finder")
     start = time.time()
-    var_wf = VariationalWeightsFinder(full_dataset,args.field_index,full_grid,dimension=dimension,order=order,basis=basis,index_limits=index_limits,**opt_params, seed=args.seed)
+    var_wf = VariationalWeightsFinder(full_dataset,args.field_index,full_grid,dimension=dimension,order=order,basis=basis,index_limits=index_limits,optim_engine='svd',seed=args.seed)
     end = time.time()
     print(f"Weight Finder initialized in {end-start} seconds")
 
@@ -98,9 +96,9 @@ if __name__ == '__main__':
             return 0.0
 
         if _check_if_zero(y_pred):
-            loss, weights = var_wf.find_weights(None, only_loss=True)
+            loss, weights = var_wf.find_weights(None)
         else:
-            loss, weights = var_wf.find_weights(y_pred, only_loss=True)
+            loss, weights = var_wf.find_weights(y_pred)
 
         if loss is None:
             return INF
@@ -135,7 +133,7 @@ if __name__ == '__main__':
     print(f"Loss with target weights and target g_part: {target_loss}")
     print(f"Target weights: {target_weights}")
 
-    best_found_loss, best_found_weights = var_wf.find_weights(target_g_part, only_loss=False)
+    best_found_loss, best_found_weights = var_wf.find_weights(target_g_part)
     print(f"Loss for the best found weights: {best_found_loss}")
     print(f"Best found weights: {best_found_weights}")
 
@@ -145,7 +143,7 @@ if __name__ == '__main__':
 
     est.fit(X, fake_y)
 
-    loss, weights = var_wf.find_weights(est.predict(X), only_loss=False)
+    loss, weights = var_wf.find_weights(est.predict(X))
 
     linear_operator = LinearOperator.from_vector(weights, dimension, order, zero_partial=False)
 
