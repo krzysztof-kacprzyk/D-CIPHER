@@ -1,7 +1,9 @@
-sympy==1.8
+sympy
 numpy
 scipy
 matplotlib
 pandas
 scikit-learn
 Cython
+cvxpy
+cvxopt
