@@ -4,6 +4,7 @@ from scipy.interpolate import BSpline
 
 from var_objective.differential_operator import Partial
 
+
 from .grids import EquiPartGrid
 import matplotlib.pyplot as plt
 
@@ -51,6 +52,11 @@ class BSplineFreq2D(BasisFunction):
 
         self.order = order
 
+        self.norm_dict = {0:1/3, 1:11/60, 2:151/1260, 3:15619/181440, 4:655177/9979200}
+
+        if order > 4:
+            raise ValueError("Order can be at most 4 unless you provide normalization constants")
+
     @property
     def dimension(self):
         return 2
@@ -92,8 +98,11 @@ class BSplineFreq2D(BasisFunction):
             o2 = partial.order_list[1]
             for i in range(o2):
                 b2 = b2.derivative()
+
+        norm = np.sqrt(self.norm_dict[self.order] ** 2 * self.a * self.b)
+       
         
-        return np.outer(b1(x1), b2(x2))
+        return np.outer(b1(x1), b2(x2)) / norm
 
         
 
@@ -175,12 +184,14 @@ class Fake(BasisFunction):
     
 if __name__ == "__main__":
 
-    observed_grid = EquiPartGrid([1.0, 1.0], 500)
+    observed_grid = EquiPartGrid([2.0, 4.0], 500)
 
 
-    basis = BSplineFreq2D([1.0, 1.0], 2)
-    p1 = Partial([1,0])
-    field = basis.get_tensor([2,2], observed_grid, partial=p1)
+    basis = BSplineFreq2D([2.0, 4.0], 2)
+    p1 = Partial([0,0])
+    field = basis.get_tensor([3,2], observed_grid, partial=p1)
+
+    print(np.sum(field ** 2) * (8.0 / (500 ** 2)))
 
 
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
