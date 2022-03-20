@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize, minimize_scalar, brentq
-from sympy import re
 import cvxpy as cp
 import time
 
@@ -151,7 +150,7 @@ class UnitLstsqSDR:
     def solve(self,b,take_mean=True):
 
         if b is None:
-            b = np.zeros(self.m,1)
+            b = np.zeros((self.m,1))
         else:
             b = b.reshape(-1,1)
 
