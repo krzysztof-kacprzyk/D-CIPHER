@@ -138,7 +138,7 @@ class UnitLstsqSVD:
 
             return (loss, x) 
        
-
+# TODO: Give credits to Yuanzhang
 class UnitLstsqSDR:
 
     def __init__(self, A):
@@ -197,6 +197,132 @@ class UnitLstsqSDR:
             loss = obj_recovered[index_best]
         return (loss, x_best.flatten())
 
+# TODO: GIVE CREDITS to Yuanzhang
+class UnitLstsqKKT:
+
+    def __init__(self, A):
+        self.A = np.asmatrix(A)
+        self.m, self.n = A.shape
+        A_square = np.transpose(A) @ A
+        lambdas, U = np.linalg.eigh(A_square)
+        # sort the eigenvalues in the ascending order (numpy seems to have sorted them in this way; but just to make sure)
+        index_eigenvalue_ascending = np.argsort(lambdas)
+        self.lambdas = lambdas[index_eigenvalue_ascending]
+        self.U = U[:, index_eigenvalue_ascending]
+
+        self.pre_z = np.transpose(self.U) @ np.transpose(self.A)
+
+        
+
+    def solve(self, b, take_mean=True):
+
+        b = b.reshape((-1,1))
+
+        # the KKT conditions are:
+        # 1. ( diag(lambdas) + mu * eye(n) ) * y = z, where z = U * A^T * b
+        # 2. y^T * y = 1
+        # where y is the primal solution and mu is the dual variable
+        z = self.pre_z @ b
+
+        """
+        the solution can be written as y = inverse( diag(lambdas) + mu * eye(n) ) * z,
+        where mu's are chosen such that y^T * y = 1
+        there are at most (2n) mu's such that y^T * y = 1, and all mu's can be found using the bisection method
+        """
+
+        # define a function that calculate y^T * y for a given mu
+        def norm_of_primal_variable(mu, lambdas, z):
+            return sum(np.power(np.asarray(z).flatten() / (mu + lambdas), 2))
+
+
+        # define a function that calculate the derivative of (y^T * y) with respect to mu
+        def derivative_norm_of_primal_variable(mu, lambdas, z):
+            return sum(-2 * np.power(np.asarray(z).flatten(), 2) / np.power((mu + lambdas), 3))
+
+
+        # we first find the (n+1) intervals in which mu's can appear:
+        lower_bound_mu = np.zeros((1, 1))
+        upper_bound_mu = np.zeros((1, 1))
+        ascending = np.zeros((1, 1))  # if the norm is ascending in mu
+        # the first interval is (-lambda_1, infinity)
+        lower_bound_mu[0, 0] = - self.lambdas[0] + 0.9 * np.absolute(z[0])
+        upper_bound_mu[0, 0] = lower_bound_mu[0, 0]
+        while norm_of_primal_variable(upper_bound_mu[0, 0], self.lambdas, z) >= 1:
+            lower_bound_mu[0, 0] = upper_bound_mu[0, 0]
+            upper_bound_mu[0, 0] = np.absolute(upper_bound_mu[0, 0]) * 2
+
+        # the next 2*(n-1) possible intervals are (-lambda_{i+1}, mu_min_norm_i], [mu_min_norm_i, -lambda_i) for i=i,...,n-1, where mu_min_norm_i is the mu that results in minimum norm of the primal variable
+        for index_interval in range(self.n-1):
+            # this interval is between -lambda_{index+1} and -lambda_{index}
+            # find mu that results in minimum (y^T y) when mu is in this interval
+            lower_bound_mu_derivative = -self.lambdas[index_interval+1] + 1e-10
+            upper_bound_mu_derivative = -self.lambdas[index_interval] - 1e-10
+
+            mu_min_norm = (lower_bound_mu_derivative + upper_bound_mu_derivative) / 2
+            while np.absolute(derivative_norm_of_primal_variable(mu_min_norm, self.lambdas, z)) > 1e-5:
+                current_derivative = derivative_norm_of_primal_variable(mu_min_norm, self.lambdas, z)
+                if current_derivative < 0:
+                    lower_bound_mu_derivative = mu_min_norm
+                else:
+                    upper_bound_mu_derivative = mu_min_norm
+
+                mu_min_norm = (lower_bound_mu_derivative + upper_bound_mu_derivative) / 2
+
+            if norm_of_primal_variable(mu_min_norm, self.lambdas, z) < 1:
+                lower_bound_mu = np.concatenate((lower_bound_mu, np.asmatrix(mu_min_norm)), 1)
+                upper_bound_mu = np.concatenate((upper_bound_mu, - self.lambdas[index_interval] - 0.9 * np.absolute(z[index_interval])), 1)
+                ascending = np.concatenate((ascending, np.asmatrix(1)), 1)
+
+                lower_bound_mu = np.concatenate((lower_bound_mu, - self.lambdas[index_interval+1] + 0.9 * np.absolute(z[index_interval+1])), 1)
+                upper_bound_mu = np.concatenate((upper_bound_mu, np.asmatrix(mu_min_norm)), 1)
+                ascending = np.concatenate((ascending, np.asmatrix(0)), 1)
+
+        # the last interval is (-infinity, -lambda_n)
+        upper_bound_mu = np.concatenate((upper_bound_mu, - self.lambdas[self.n-1] - 0.9 * np.absolute(z[self.n-1])), 1)
+        lower_bound_mu = np.concatenate((lower_bound_mu, np.asmatrix(upper_bound_mu[0, -1])), 1)
+        while norm_of_primal_variable(lower_bound_mu[0, -1], self.lambdas, z) >= 1:
+            upper_bound_mu[0, -1] = lower_bound_mu[0, -1]
+            lower_bound_mu[0, -1] = - np.absolute(lower_bound_mu[0, -1]) * 2
+        ascending = np.concatenate((ascending, np.asmatrix(1)), 1)
+
+        # now we can find the mu in each interval
+        mu = []
+        for index_mu in range(np.shape(upper_bound_mu)[1]):
+            current_lower_bound_mu = lower_bound_mu[0, index_mu]
+            current_upper_bound_mu = upper_bound_mu[0, index_mu]
+
+            current_mu = (current_lower_bound_mu + current_upper_bound_mu) / 2
+            while np.absolute(norm_of_primal_variable(current_mu, self.lambdas, z) - 1.0) > 1e-5:
+                current_norm = norm_of_primal_variable(current_mu, self.lambdas, z)
+                if ascending[0, index_mu] == 0:
+                    if current_norm < 1:
+                        current_upper_bound_mu = current_mu
+                    else:
+                        current_lower_bound_mu = current_mu
+                else:
+                    if current_norm < 1:
+                        current_lower_bound_mu = current_mu
+                    else:
+                        current_upper_bound_mu = current_mu
+
+                current_mu = (current_lower_bound_mu + current_upper_bound_mu) / 2
+
+            mu.append(current_mu)
+
+        # finally, we can compute the primal solutions given each mu
+        Y = z / (np.transpose(np.asmatrix(self.lambdas)) + np.asmatrix(mu))
+
+        # we calculate the objective values under each solution and pick the solution with the minimum objective value
+        obj = np.transpose(b) @ b - np.sum(np.multiply(np.power(Y, 2), np.transpose(np.asmatrix(self.lambdas))), 0) - 2 * np.asmatrix(mu)
+        index_best = np.argmin(obj)
+        y_best = Y[:, index_best]
+
+        if take_mean:
+            return (obj[0, index_best] / self.m, y_best)
+        else:
+            return (obj[0, index_best], y_best)
+
+        
 
 
 if __name__ == "__main__":
@@ -204,37 +330,55 @@ if __name__ == "__main__":
 
     np.random.seed(0)
 
-    A = np.random.uniform(0.0,1.0,(1000,10))
-    b = np.random.uniform(0.0,1.0,(1000,1))
-    for i in range(A.shape[0]):
-        for j in range(A.shape[1]):
+    num_tests = 10
+
+    for i in range(num_tests):
+
+        A = np.random.uniform(0.0,1.0,(1000,10))
+        b = np.random.uniform(0.0,1.0,(1000,1))
+        for i in range(A.shape[0]):
+            for j in range(A.shape[1]):
+                if np.random.rand() > 0.5:
+                    A[i,j] /= 1000000000
+                else:
+                    A[i,j] *= 1000000000
+        
+        for i in range(b.shape[0]):
             if np.random.rand() > 0.5:
-                A[i,j] /= 1000000000
+                b[i,0] /= 1000000000
             else:
-                A[i,j] *= 1000000000
-    
-    for i in range(b.shape[0]):
-        if np.random.rand() > 0.5:
-            b[i,0] /= 1000000000
-        else:
-            b[i,0] *= 1000000000
-    print(b)
-    b = b.reshape(-1,1)
+                b[i,0] *= 1000000000
 
-    solver1 = UnitLstsqSDR(A)
-    start = time.time()
-    loss1,x1 = solver1.solve(b)
-    end = time.time()
-    print(f"SDR took {end-start} seconds")
-    print(loss1)
-    print(np.linalg.norm(x1,2))
 
-    solver2 = UnitLstsqSVD(A)
-    b=b.reshape(-1,)
-    start = time.time()
-    loss2,x2 = solver2.solve(b,only_loss=False,take_mean=False)
-    end = time.time()
-    print(f"SVD took {end-start} seconds")
-    print(loss2)
-    print(np.linalg.norm(x2,2))
+        b = b.reshape(-1,1)
+
+        solver1 = UnitLstsqSDR(A)
+        start = time.time()
+        loss1,x1 = solver1.solve(b, take_mean=False)
+        end = time.time()
+        print(f"SDR took {end-start} seconds")
+        if loss1 is not None:
+            print(loss1)
+            print(np.linalg.norm(x1,2))
+
+        solver2 = UnitLstsqSVD(A)
+        b=b.reshape(-1,)
+        start = time.time()
+        loss2,x2 = solver2.solve(b,take_mean=False)
+        end = time.time()
+        print(f"SVD took {end-start} seconds")
+        if loss2 is not None:
+            print(loss2)
+            print(np.linalg.norm(x2,2))
+
+        solver3 = UnitLstsqKKT(A)
+        b = b.reshape(-1,1)
+        start = time.time()
+        loss3,x3 = solver3.solve(b,take_mean=False)
+        end = time.time()
+        print(f"KKT took {end-start} seconds")
+        print(loss3)
+        print(np.linalg.norm(x3,2))
+
+
 

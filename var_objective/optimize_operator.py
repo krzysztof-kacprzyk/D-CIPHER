@@ -1,10 +1,11 @@
+import time
 import numpy as np
 from itertools import product
 
 from var_objective.grids import EquiPartGrid
 from .differential_operator import LinearOperator
 from .derivative_estimators import all_derivatives
-from .utils.lstsq_solver import UnitLstsqSDR, UnitLstsqSVD
+from .utils.lstsq_solver import UnitLstsqKKT, UnitLstsqSDR, UnitLstsqSVD
 
 class VariationalWeightsFinder:
 
@@ -40,7 +41,7 @@ class VariationalWeightsFinder:
         self.D = self.estimated_dataset.shape[0]
         self.N = self.estimated_dataset.shape[1]
         self.M = self.full_grid.num_dims
-        self.J = LinearOperator.get_vector_length(self.dimension, self.order)
+        
 
         if self.field_index >= self.N:
             raise ValueError(f"There is no field with index {self.field_index}")
@@ -72,6 +73,8 @@ class VariationalWeightsFinder:
             self.weight_finder = UnitLstsqSVD(self.X)
         elif optim_engine == 'sdr':
             self.weight_finder = UnitLstsqSDR(self.X)
+        elif optim_engine == 'kkt':
+            self.weight_finder = UnitLstsqKKT(self.X)
 
     def _calculate_loss(self, g_part, weights):
 
@@ -120,12 +123,12 @@ class VariationalWeightsFinder:
 
             assert g_part.shape == (self.D,*self.full_grid.shape)
 
-            g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
-            assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))
-
             if isinstance(self.full_grid, EquiPartGrid):
-                g_integrals = g_part.sum(axis=tuple(range(2, len(g_part.shape)))) * self.full_grid.get_integration_constant()
-            else:    
+                axes = tuple(range(1, 1 + len(self.full_grid.shape)))
+                g_integrals = np.tensordot(g_part, self.test_function_part[:,0], (axes,axes)) * self.full_grid.get_integration_constant() 
+            else:
+                g_part = np.multiply(g_part[:,np.newaxis], self.test_function_part[np.newaxis,:,0])
+                assert g_part.shape == (self.D,self.S,*(self.full_grid.shape))    
                 g_integrals = np.multiply(g_part, self.full_grid.for_integration()).sum(axis=tuple(range(2, len(g_part.shape))))
             assert g_integrals.shape == (self.D, self.S)
 
@@ -184,6 +187,8 @@ class MSEWeightsFinder:
             self.weight_finder = UnitLstsqSVD(self.X)
         elif optim_engine == 'sdr':
             self.weight_finder = UnitLstsqSDR(self.X)
+        elif optim_engine == 'kkt':
+            self.weight_finder = UnitLstsqKKT(self.X)
 
     def _calculate_loss(self, g_part, weights):
 
