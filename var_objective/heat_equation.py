@@ -1,6 +1,11 @@
 import numpy as np
 
+from var_objective.conditions import get_conditions_set
+
 from .libs import tdma
+
+from matplotlib import pyplot as plt
+from matplotlib import animation
 
 class HeatEquationNeumann1D():
 
@@ -61,42 +66,49 @@ class HeatEquationNeumann1D():
 
 if __name__ == "__main__":
 
-    k = 0.1
-    heat_source = lambda X: 4*np.sin(2*np.pi*X[1])
-    boundary1  = lambda x: np.zeros_like(x)
-    boundary2 = lambda x: np.zeros_like(x)
-    # initial_temp = lambda x: 8 * (x-0.5) * (x-0.5)
-    initial_temp = lambda x: np.zeros_like(x)
+    conditions = get_conditions_set('Heat1')
+    widths = [2.0,2.0]
 
-    heat_eq = HeatEquationNeumann1D(k,heat_source,boundary1,boundary2,initial_temp)
+    for condition in conditions.conditions:
 
-    sol = heat_eq.btcs(1.0,1.0,0.001,0.001)
 
-    a = sol.shape[0]
-    b = sol.shape[1]
-    print(sol.shape)
+        k = 0.1
+        heat_source = lambda X: 4*np.sin(2*np.pi*X[1])
+        boundary1  = lambda x: np.zeros_like(x)
+        boundary2 = lambda x: np.zeros_like(x)
+        # initial_temp = lambda x: 8 * (x-0.5) * (x-0.5)
+        initial_temp = condition[0]
 
-    from matplotlib import pyplot as plt
-    from matplotlib import animation
+        heat_eq = HeatEquationNeumann1D(k,heat_source,boundary1,boundary2,initial_temp)
 
-    # First set up the figure, the axis, and the plot element we want to animate
-    fig = plt.figure()
-    ax = plt.axes(xlim=(0, 1.0), ylim=(-5.0,5.0))
-    line, = ax.plot([], [], lw=2)
+        sol = heat_eq.btcs(widths[0],widths[1],0.001,0.001)
 
-    # initialization function: plot the background of each frame
-    def init():
-        line.set_data([], [])
-        return line,
+        a = sol.shape[0]
+        b = sol.shape[1]
+        print(sol.shape)
 
-    # animation function.  This is called sequentially
-    def animate(i):
+        y_max = sol.max()
+        y_min = sol.min()
         
-        line.set_data(np.linspace(0.0,1.0,b), sol[i,:])
-        return line,
 
-    # call the animator.  blit=True means only re-draw the parts that have changed.
-    anim = animation.FuncAnimation(fig, animate, init_func=init,
-                                frames=a, interval=1, blit=True)
+        # First set up the figure, the axis, and the plot element we want to animate
+        fig = plt.figure()
+        ax = plt.axes(xlim=(0, widths[1]), ylim=(y_min,y_max))
+        line, = ax.plot([], [], lw=2)
 
-    plt.show()
+        # initialization function: plot the background of each frame
+        def init():
+            line.set_data([], [])
+            return line,
+
+        # animation function.  This is called sequentially
+        def animate(i):
+            
+            line.set_data(np.linspace(0.0,widths[1],b), sol[i,:])
+            return line,
+
+        # call the animator.  blit=True means only re-draw the parts that have changed.
+        anim = animation.FuncAnimation(fig, animate, init_func=init,
+                                    frames=a, interval=1, blit=True)
+
+        plt.show()
