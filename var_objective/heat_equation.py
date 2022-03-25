@@ -1,3 +1,4 @@
+from matplotlib import animation, pyplot as plt
 import numpy as np
 
 from var_objective.conditions import get_conditions_set
@@ -73,7 +74,8 @@ if __name__ == "__main__":
 
 
         k = 0.1
-        heat_source = lambda X: 4*np.sin(2*np.pi*X[1])
+        # heat_source = lambda X: 4*np.sin(2*np.pi*X[1])
+        heat_source = lambda X: (X[1] - 1.0) ** 2 * (1.0 - X[0])
         boundary1  = lambda x: np.zeros_like(x)
         boundary2 = lambda x: np.zeros_like(x)
         # initial_temp = lambda x: 8 * (x-0.5) * (x-0.5)

@@ -16,7 +16,7 @@ from .conditions import get_conditions_set
 from .config import get_optim_params, get_gp_params
 from .libs import SymbolicRegressor, make_fitness
 
-INF = 99999999.9
+
 
 
 def grid_and_fields_to_covariates(grid_and_fields):
@@ -65,6 +65,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     INF_FLOAT = 9.0e+300
+    LSTSQ_SOLVER = 'svd'
 
     pdes = get_pdes(args.name)
 
@@ -123,7 +124,7 @@ gplearn config: {gp_params}
 
         print("Initializing Variational Weights Finder")
         start = time.time()
-        var_wf = VariationalWeightsFinder(full_dataset,args.field_index,full_grid,dimension=dimension,order=order,basis=basis,index_limits=index_limits,optim_engine='svd',seed=seed)
+        var_wf = VariationalWeightsFinder(full_dataset,args.field_index,full_grid,dimension=dimension,order=order,basis=basis,index_limits=index_limits,optim_engine=LSTSQ_SOLVER,seed=seed)
         end = time.time()
         print(f"Weight Finder initialized in {end-start} seconds")
 
@@ -139,7 +140,7 @@ gplearn config: {gp_params}
                 loss, weights = var_wf.find_weights(y_pred)
 
             if loss is None:
-                return INF
+                return INF_FLOAT
 
             return loss
         
@@ -182,7 +183,6 @@ gplearn config: {gp_params}
         est.fit(X, fake_y)
 
         loss, weights = var_wf.find_weights(est.predict(X))
-
         linear_operator = LinearOperator.from_vector(weights, dimension, order, zero_partial=False)
 
     
