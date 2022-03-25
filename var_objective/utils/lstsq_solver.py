@@ -74,7 +74,7 @@ class UnitLstsqSVD:
         s_full2_masked = self.s_full2[z2_mask]
         if len(s_full2_masked) == 0:
             print("Error. No solution. The whole function is equal to 0")
-            return None
+            return (None,None)
         lower_bound = -np.min(s_full2_masked)
         
 
