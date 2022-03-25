@@ -5,7 +5,7 @@ from itertools import product
 from var_objective.grids import EquiPartGrid
 from .differential_operator import LinearOperator
 from .derivative_estimators import all_derivatives
-from .utils.lstsq_solver import UnitLstsqKKT, UnitLstsqSDR, UnitLstsqSVD
+from .utils.lstsq_solver import UnitLstsqKKT, UnitLstsqKKT_brent, UnitLstsqSDR, UnitLstsqSVD
 
 class VariationalWeightsFinder:
 
@@ -75,6 +75,8 @@ class VariationalWeightsFinder:
             self.weight_finder = UnitLstsqSDR(self.X)
         elif optim_engine == 'kkt':
             self.weight_finder = UnitLstsqKKT(self.X)
+        elif optim_engine == 'kkt-brent':
+            self.weight_finder = UnitLstsqKKT_brent(self.X)
 
     def _calculate_loss(self, g_part, weights):
 
@@ -189,6 +191,8 @@ class MSEWeightsFinder:
             self.weight_finder = UnitLstsqSDR(self.X)
         elif optim_engine == 'kkt':
             self.weight_finder = UnitLstsqKKT(self.X)
+        elif optim_engine == 'kkt-brent':
+            self.weight_finder = UnitLstsqKKT_brent(self.X)
 
     def _calculate_loss(self, g_part, weights):
 

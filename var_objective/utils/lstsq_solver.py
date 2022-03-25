@@ -322,6 +322,124 @@ class UnitLstsqKKT:
         else:
             return (obj[0, index_best], y_best)
 
+class UnitLstsqKKT_brent:
+
+    def __init__(self, A):
+        self.A = np.asmatrix(A)
+        self.m, self.n = A.shape
+        A_square = np.transpose(A) @ A
+        lambdas, U = np.linalg.eigh(A_square)
+        # sort the eigenvalues in the ascending order (numpy seems to have sorted them in this way; but just to make sure)
+        index_eigenvalue_ascending = np.argsort(lambdas)
+        self.lambdas = lambdas[index_eigenvalue_ascending]
+        self.U = U[:, index_eigenvalue_ascending]
+
+        self.pre_z = np.transpose(self.U) @ np.transpose(self.A)
+
+    def solve(self, b, take_mean=True):
+
+        if b is None:
+            b = np.zeros((self.m,1))
+        else:
+            b = b.reshape(-1,1)
+
+        # the KKT conditions are:
+        # 1. ( diag(lambdas) + mu * eye(n) ) * y = z, where z = U * A^T * b
+        # 2. y^T * y = 1
+        # where y is the primal solution and mu is the dual variable
+        z = self.pre_z @ b
+
+        """
+        the solution can be written as y = inverse( diag(lambdas) + mu * eye(n) ) * z,
+        where mu's are chosen such that y^T * y = 1
+        there are at most (2n) mu's such that y^T * y = 1, and all mu's can be found using the bisection method
+        """
+
+        # define a function that calculate y^T * y for a given mu
+        def f(mu):
+            return sum(np.power(np.asarray(z).flatten() / (mu + self.lambdas), 2)) - 1
+
+        # define a function that calculate the derivative of (y^T * y) with respect to mu
+        def derivative_f(mu):
+            return sum(-2 * np.power(np.asarray(z).flatten(), 2) / np.power((mu + self.lambdas), 3))
+
+        # we first find the (n+1) intervals in which mu's can appear:
+        lower_bound_mu = np.zeros((1, 1))
+        upper_bound_mu = np.zeros((1, 1))
+        # the first interval is (-lambda_1, infinity)
+        lower_bound_mu[0, 0] = - self.lambdas[0] + 0.9 * np.absolute(z[0])
+        upper_bound_mu[0, 0] = lower_bound_mu[0, 0]
+        while f(upper_bound_mu[0, 0]) >= 0:
+            lower_bound_mu[0, 0] = upper_bound_mu[0, 0]
+            upper_bound_mu[0, 0] = np.absolute(upper_bound_mu[0, 0]) * 2
+
+        # the next 2*(n-1) possible intervals are (-lambda_{i+1}, mu_min_norm_i], [mu_min_norm_i, -lambda_i) for i=i,...,n-1, where mu_min_norm_i is the mu that results in minimum norm of the primal variable
+        for index_interval in range(self.n - 1):
+            # this interval is between -lambda_{index+1} and -lambda_{index}
+            # find mu that results in minimum (y^T y) when mu is in this interval
+            lower_bound_mu_derivative = -self.lambdas[index_interval + 1] + 1e-4
+            upper_bound_mu_derivative = -self.lambdas[index_interval] - 1e-4
+
+            try:
+                mu_min_norm, _ = brentq(derivative_f, lower_bound_mu_derivative, upper_bound_mu_derivative, full_output=True)
+            except:
+                print("Error. Brentq failed")
+                return (None, None)
+
+            if f(mu_min_norm) < 0:
+                lower_bound_mu = np.concatenate((lower_bound_mu, np.asmatrix(mu_min_norm)), 1)
+                upper_bound_mu = np.concatenate(
+                    (upper_bound_mu, - self.lambdas[index_interval] - 0.9 * np.absolute(z[index_interval])), 1)
+
+                lower_bound_mu = np.concatenate(
+                    (lower_bound_mu, - self.lambdas[index_interval + 1] + 0.9 * np.absolute(z[index_interval + 1])), 1)
+                upper_bound_mu = np.concatenate((upper_bound_mu, np.asmatrix(mu_min_norm)), 1)
+
+        # the last interval is (-infinity, -lambda_n)
+        upper_bound_mu = np.concatenate((upper_bound_mu, - self.lambdas[self.n - 1] - 0.9 * np.absolute(z[self.n - 1])),
+                                        1)
+        lower_bound_mu = np.concatenate((lower_bound_mu, np.asmatrix(upper_bound_mu[0, -1])), 1)
+        while f(lower_bound_mu[0, -1]) >= 0:
+            upper_bound_mu[0, -1] = lower_bound_mu[0, -1]
+            lower_bound_mu[0, -1] = - np.absolute(lower_bound_mu[0, -1]) * 2
+
+        # now we can find the mu in each interval
+        mu = []
+        for index_mu in range(np.shape(upper_bound_mu)[1]):
+            current_lower_bound_mu = lower_bound_mu[0, index_mu]
+            current_upper_bound_mu = upper_bound_mu[0, index_mu]
+
+            try:
+                current_mu, _ = brentq(f, current_lower_bound_mu, current_upper_bound_mu, full_output=True)
+            except:
+                print("Error. Brentq failed")
+                return (None, None)
+
+            mu.append(current_mu)
+
+        # finally, we can compute the primal solutions given each mu
+        Y = z / (np.transpose(np.asmatrix(self.lambdas)) + np.asmatrix(mu))
+
+        # we calculate the objective values under each solution and pick the solution with the minimum objective value
+        obj = np.transpose(b) @ b - np.sum(np.multiply(np.power(Y, 2), np.transpose(np.asmatrix(self.lambdas))),
+                                           0) - 2 * np.asmatrix(mu)
+
+        # filter out zero vectors
+        norms = np.linalg.norm(Y,axis=0)
+        obj_filtered = obj[:, (norms != 0)]
+        if obj_filtered[0,:].size == 0:
+            print("KKT-brent failed")
+            return (None, None)
+        index_best = np.argmin(obj_filtered)
+        y_best = (Y[:, (norms != 0)])[:, index_best]
+      
+        if index_best != 0:
+            print(f"index: {index_best}")
+  
+        if take_mean:
+            return (obj[0, index_best] / self.m, np.ravel(y_best))
+        else:
+            return (obj[0, index_best], np.ravel(y_best))
         
 
 
