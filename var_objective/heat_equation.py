@@ -5,6 +5,9 @@ from var_objective.conditions import get_conditions_set
 
 from .libs import tdma
 
+from matplotlib import pyplot as plt
+from matplotlib import animation
+
 class HeatEquationNeumann1D():
 
     def __init__(self, k, heat_source, boundary1, boundary2, initial_temp):

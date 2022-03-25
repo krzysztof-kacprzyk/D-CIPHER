@@ -12,16 +12,16 @@ def get_optim_params():
 
 def get_gp_params():
     dic = {
-        'population_size': 5000,
+        'population_size': 15000,
         'function_set':('add', 'sub', 'mul', 'div', 'sin', 'exp','log'),
-        'generations':20,
-        'parsimony_coefficient': 1e-3,
+        'generations':30,
+        'parsimony_coefficient': 1e-7,
         'tournament_size': 20,
         # 'p_crossover': 0.206322262,
         # 'p_subtree_mutation':0.053164874,
         # 'p_hoist_mutation':0.368744818,
         # 'p_point_mutation':0.257603826
-        'n_jobs':1,
+        'n_jobs':-1,
         'patience':20,
         'best_so_far':False,
     }

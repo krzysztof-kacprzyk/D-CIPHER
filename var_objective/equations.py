@@ -19,6 +19,8 @@ def get_pdes(name, parameters=None):
         return SLM1()
     elif name == "HeatEquation_0.1":
         return HeatEquation1(0.1)
+    elif name == "HeatEquation_1.0":
+        return HeatEquation1(1.0)
     else:
         raise ValueError(f"Unknown equation: {name}")
 
