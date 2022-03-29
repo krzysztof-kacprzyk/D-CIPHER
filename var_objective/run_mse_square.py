@@ -61,6 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('diff_engine', choices=['numpy', 'tv', 'trend', 'spline', 'finite'])
     parser.add_argument('num_trials', type=int, help='Number of trials')
     parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--num_samples', type=int, default=1)
 
     args = parser.parse_args()
 
@@ -71,8 +72,6 @@ if __name__ == '__main__':
     widths = [args.width] * 2
 
     observed_grid = EquiPartGrid(widths, args.frequency_per_dim)
-
-    conditions = get_conditions_set(args.conditions_set)
 
     dt = datetime.now().strftime("%d-%m-%YT%H.%M.%S")
     filename = f"results/run_mse_square_{dt}"
@@ -93,7 +92,8 @@ gplearn config: {gp_params}
         seeds = np.random.randint(0,1000000,size=args.num_trials)
 
     for trial, seed in enumerate(seeds):
-
+        
+        conditions = get_conditions_set(args.conditions_set, params={'seed': seed, 'num_samples':args.num_samples})
 
         print(f"Seed set to {seed}")
         print(f"Generating dataset of {args.name} on a grid with width {args.width}, frequency per dim {args.frequency_per_dim}, noise ratio {args.noise_ratio} and using conditions set {args.conditions_set}")

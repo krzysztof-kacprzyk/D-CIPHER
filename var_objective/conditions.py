@@ -1,4 +1,10 @@
 import numpy as np
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C, WhiteKernel
+
+import matplotlib.pyplot as plt
+
+from var_objective.grids import EquiPartGrid
 
 class Conditions:
      
@@ -18,8 +24,28 @@ class Conditions:
     def get_condition_functions(self, index):
         return self.conditions[index]
 
+class RandomConditions:
 
-def get_conditions_set(name):
+    def __init__(self, num_conditions_per_sample, num_samples, length_scale, mean_range, std_range, seed=0):
+
+        self.num_conditions_per_sample = num_conditions_per_sample
+        self.num_samples = num_samples
+        self.length_scale = length_scale
+        self.mean_range = mean_range
+        self.std_range = std_range
+
+        np.random.seed(seed)
+        self.seeds = np.random.randint(0,1000000,size=(self.num_samples,self.num_conditions_per_sample))
+
+    def get_num_samples(self):
+        return self.num_samples
+
+    def get_condition_functions(self, index):
+        return [generate_random_function(self.length_scale, self.mean_range,self.std_range,seed=seed) for seed in self.seeds[index]]
+
+
+
+def get_conditions_set(name, params={'seed':0, 'num_samples':1}):
     if name == '1Sin':
         conditions = Conditions(1)
         conditions.add_sample([lambda t: np.sin(t)])
@@ -50,6 +76,34 @@ def get_conditions_set(name):
         conditions.add_sample([lambda x: np.zeros_like(x)])
         conditions.add_sample([lambda x: x])
         conditions.add_sample([lambda x: np.cos(x)])
+    elif name == 'HeatRandom':
+        length_scale = 0.2
+        mean_range = (-10,10)
+        std_range = (0.5, 4)
+        conditions = RandomConditions(1,params['num_samples'],length_scale, mean_range, std_range, seed=params['seed'])
 
     return conditions
-        
+
+def generate_random_function(length_scale, mean_range, std_range, seed=0):
+
+    np.random.seed(seed)
+
+    mean = np.random.uniform(mean_range[0], mean_range[1])
+    std = np.random.uniform(std_range[0], std_range[1])
+
+    gp = GaussianProcessRegressor(kernel=RBF(length_scale=length_scale),random_state=seed)
+
+    def f(x):
+        covariates = np.atleast_2d(x).T
+        return gp.sample_y(covariates).reshape(-1,) * std + mean
+
+    return f
+
+if __name__ == '__main__':
+
+    t = np.linspace(0,2,200)
+
+    f = generate_random_function(0.4,mean_range=(-10,10),std_range=(1,2),seed=0)
+
+    plt.plot(t, f(t))
+    plt.show()

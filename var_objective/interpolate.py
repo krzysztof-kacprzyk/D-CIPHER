@@ -1,7 +1,8 @@
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, WhiteKernel
+from sklearn.gaussian_process.kernels import RBF, WhiteKernel, ConstantKernel
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 np.random.seed(0)
 
@@ -12,7 +13,7 @@ def estimate_fields(observed_grid, observed_dataset, full_grid, seed=0):
     N = observed_dataset.shape[1] # number of dimensions
 
     # Configure Gaussian Process
-    kernel = RBF() + WhiteKernel()
+    kernel = ConstantKernel()*RBF() + WhiteKernel()
     gpr = GaussianProcessRegressor(kernel=kernel, random_state=seed)
 
 
@@ -26,37 +27,49 @@ def estimate_fields(observed_grid, observed_dataset, full_grid, seed=0):
         for j in range(N):
 
             u_obs_j = observed_dataset[d][j].flatten()
-            gpr.fit(observed_grid.as_covariates(), u_obs_j)
-            u_pred_j = gpr.predict(full_grid.as_covariates())
+            mean = np.mean(u_obs_j)
+            std = np.std(u_obs_j)
+            gpr.fit(observed_grid.as_covariates(), (u_obs_j - mean)/std)
+            u_pred_j = gpr.predict(full_grid.as_covariates()) * std + mean
             u_pred_j = full_grid.from_labels_to_grid(u_pred_j)
             U_est[j] = u_pred_j
+
+            fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+            # Plot the surface.
+            surf = ax.plot_surface(full_grid.by_axis()[0], full_grid.by_axis()[1], u_pred_j, linewidth=0, antialiased=False)
+            ax.scatter(observed_grid.by_axis()[0], observed_grid.by_axis()[1],u_obs_j)
+            plt.show()
 
         samples_list.append(U_est)
 
     return np.stack(samples_list, axis=0)
 
+if __name__ == "__main__":
 
-# from .grids import EquiPartGrid
-# import matplotlib.pyplot as plt
+    from .grids import EquiPartGrid
+ 
 
-# g = EquiPartGrid([5.0], 1000)
+    g = EquiPartGrid([5.0], 1000)
 
-# X_obs = np.expand_dims(np.linspace(0,5,30),axis=-1)
-# V_obs =  np.concatenate([np.sin(X_obs) + np.random.normal(0,0.4,size=X_obs.shape), np.cos(X_obs) + np.random.normal(0,0.4,size=X_obs.shape)], axis=1)
-# original = np.cos(g.as_grid().flatten())
+    obs = EquiPartGrid([5.0],10)
 
-# # X_obs = np.array([[0.2],[0.5],[0.7],[3.1]])
-# # U_obs = np.array([[0.6],[1.2],[1.6],[2.0]])
+    X_obs = obs.by_axis()
+    print(X_obs.shape)
+    V_obs =  np.expand_dims(np.concatenate([np.sin(X_obs) + np.random.normal(0,0.2,size=X_obs.shape), 3+np.cos(X_obs) + np.random.normal(0,0.2,size=X_obs.shape)], axis=0),axis=0)
+    original = 3+np.cos(g.as_grid().flatten())
 
-# U_est = estimate_fields(X_obs, V_obs, g)
+    # X_obs = np.array([[0.2],[0.5],[0.7],[3.1]])
+    # U_obs = np.array([[0.6],[1.2],[1.6],[2.0]])
 
-# # print(g.as_grid())
-# # print(U_pred)
+    U_est = estimate_fields(obs, V_obs, g)
+
+    # print(g.as_grid())
+    # print(U_pred)
 
 
 
-# plt.scatter(X_obs.flatten(), V_obs[:,1].flatten())
-# plt.plot(g.as_grid().flatten(), U_est[1].flatten(), label="GP")
-# plt.plot(g.as_grid().flatten(), original, label='orig')
-# plt.legend()
-# plt.show()
+    plt.scatter(X_obs.flatten(), V_obs[0,1,:].flatten())
+    plt.plot(g.as_grid().flatten(), U_est[0,1,:].flatten(), label="GP")
+    plt.plot(g.as_grid().flatten(), original, label='orig')
+    plt.legend()
+    plt.show()
