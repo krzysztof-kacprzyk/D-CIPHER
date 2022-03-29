@@ -77,7 +77,7 @@ def get_conditions_set(name, params={'seed':0, 'num_samples':1}):
         conditions.add_sample([lambda x: x])
         conditions.add_sample([lambda x: np.cos(x)])
     elif name == 'HeatRandom':
-        length_scale = 0.2
+        length_scale = 0.4
         mean_range = (-10,10)
         std_range = (0.5, 4)
         conditions = RandomConditions(1,params['num_samples'],length_scale, mean_range, std_range, seed=params['seed'])
@@ -95,7 +95,7 @@ def generate_random_function(length_scale, mean_range, std_range, seed=0):
 
     def f(x):
         covariates = np.atleast_2d(x).T
-        return gp.sample_y(covariates).reshape(-1,) * std + mean
+        return gp.sample_y(covariates,random_state=seed).reshape(-1,) * std + mean
 
     return f
 
