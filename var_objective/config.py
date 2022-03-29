@@ -14,21 +14,21 @@ def get_gp_params():
     dic = {
         'population_size': 15000,
         'function_set':('add', 'sub', 'mul', 'div', 'sin', 'exp','log'),
-        'generations':40,
-        'parsimony_coefficient': 1e-6,
+        'generations':20,
+        'parsimony_coefficient': 1e-2,
         'tournament_size': 20,
         # 'p_crossover': 0.206322262,
         # 'p_subtree_mutation':0.053164874,
         # 'p_hoist_mutation':0.368744818,
         # 'p_point_mutation':0.257603826
-        'p_crossover': 0.7,
-        'p_subtree_mutation':0.13,
-        'p_hoist_mutation':0.03,
-        'p_point_mutation':0.09,
+        'p_crossover': 0.6903,
+        'p_subtree_mutation':0.133,
+        'p_hoist_mutation':0.0361,
+        'p_point_mutation':0.0905,
         'n_jobs':-1,
         'patience':20,
         'best_so_far':False,
-        'parsimony_multiplicative':False
+        'parsimony_multiplicative':True
     }
     return dic
 
