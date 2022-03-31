@@ -3,9 +3,11 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize, minimize_scalar, brentq
 import cvxpy as cp
 import time
+import torch
 
 from sklearn.linear_model import lars_path_gram
 from bisect import bisect_left
+import mpmath as mp
 
 def ridge(A,b,l):
     n = A.shape[1]
@@ -36,6 +38,8 @@ class UnitLstsqSVD:
         self.v_last = vh[-1,:].flatten()
 
         self.cov_mat = np.transpose(A) @ A
+
+        mp.dps = 50
 
     def _check_if_zero(vector):
         if np.sum(vector == 0.0) == len(vector):
@@ -84,8 +88,11 @@ class UnitLstsqSVD:
         n = len(z2)
 
         x_max = np.max(np.sqrt(n) * z_mod - self.s_full2)
+
+        interval_prec = mp.fsub(x_max, lower_bound)
+
     
-        interval = (x_max - lower_bound)
+        interval = float(interval_prec)
 
         if interval == 0.0:
             print("Error. Zero interval. Precision is too small")
@@ -492,7 +499,64 @@ class UnitLstsqLARS:
 
         return (loss,weights)
 
-    
+class UnitLstsqPGD:
+    def __init__(self,A):
+        self.A = torch.from_numpy(A).float()
+        self.m, self.n = A.shape
+        self.model = UnitLstsqPGD.LinearRegressionModel(self.n)
+        self.criterion = torch.nn.MSELoss()
+        self.clipper = UnitLstsqPGD.UnitNormClipper(1)
+        self.num_epochs = 100
+
+    def weights_init(m):
+        if type(m) == torch.nn.Linear:
+            torch.nn.init.xavier_normal_(m.weight.data)
+
+    def solve(self,b,take_mean=True):
+        self.model.apply(UnitLstsqPGD.weights_init)
+        optimizer = torch.optim.SGD(self.model.parameters(), lr=0.001)
+        b = torch.from_numpy(b).float()
+        
+        for epoch in range(self.num_epochs):
+            pred_y = self.model(self.A).view(-1)
+            loss = self.criterion(pred_y,b)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            if epoch % self.clipper.frequency == 0:
+                self.model.apply(self.clipper)
+
+        weights = self.model.linear.state_dict()['weight'].view(-1)
+        loss = torch.sum(torch.pow(torch.matmul(self.A, weights) - b,2))
+
+        if take_mean:
+            loss /= self.m
+
+        return (loss,weights.numpy())
+
+    class LinearRegressionModel(torch.nn.Module):
+
+        def __init__(self,n):
+            super(UnitLstsqPGD.LinearRegressionModel, self).__init__()
+            self.linear = torch.nn.Linear(n,1,bias=False)
+        
+        def forward(self, x):
+            y_pred = self.linear(x)
+            return y_pred
+
+    class UnitNormClipper(object):
+
+        def __init__(self, frequency=5):
+            self.frequency = frequency
+
+        def __call__(self, module):
+            # filter the variables to get the ones you want
+            if hasattr(module, 'weight'):
+                w = module.weight.data
+                w.div_(torch.linalg.vector_norm(w, 1).expand_as(w))
+        
 
 
 if __name__ == "__main__":
@@ -500,10 +564,10 @@ if __name__ == "__main__":
 
     np.random.seed(0)
 
-    num_tests = 1
-    scale_factor  = 100 # The bigger the scale_factor the less uniform entries are
-    m = 1000
-    n = 2
+    num_tests = 10
+    scale_factor  = 10000 # The bigger the scale_factor the less uniform entries are
+    m = 10000
+    n = 5
 
     for i in range(num_tests):
 
@@ -539,7 +603,7 @@ if __name__ == "__main__":
         solver2 = UnitLstsqSVD(A)
         b=b.reshape(-1,)
         start = time.time()
-        loss2,x2 = solver2.solve(b)
+        loss2,x2 = solver2.solve(b, take_mean=False)
         end = time.time()
         if loss2 is not None:
             print(f"SVD | Loss: {loss2} | Time: {end-start} seconds")
@@ -576,4 +640,15 @@ if __name__ == "__main__":
             print(x5)
         except:
             print("LARS failed")
+
+        solver6 = UnitLstsqPGD(A)
+        b = b.reshape(-1,)
+        start = time.time()
+        try: 
+            loss6, x6 = solver6.solve(b, take_mean=False)
+            end = time.time()
+            print(f"PGD | Loss {loss6} | Time: {end - start} seconds")
+            print(x6)
+        except:
+            print("PGD failed")
 

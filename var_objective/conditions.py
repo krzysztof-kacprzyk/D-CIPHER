@@ -81,6 +81,11 @@ def get_conditions_set(name, params={'seed':0, 'num_samples':1}):
         mean_range = (-10,10)
         std_range = (0.5, 4)
         conditions = RandomConditions(1,params['num_samples'],length_scale, mean_range, std_range, seed=params['seed'])
+    elif name == 'TestRandom':
+        length_scale = 0.4
+        mean_range = (-1,1)
+        std_range = (0.5, 2)
+        conditions = RandomConditions(1,params['num_samples'],length_scale, mean_range, std_range, seed=params['seed'])
 
     return conditions
 
@@ -94,8 +99,9 @@ def generate_random_function(length_scale, mean_range, std_range, seed=0):
     gp = GaussianProcessRegressor(kernel=RBF(length_scale=length_scale),random_state=seed)
 
     def f(x):
-        covariates = np.atleast_2d(x).T
-        return gp.sample_y(covariates,random_state=seed).reshape(-1,) * std + mean
+        org_shape = x.shape
+        covariates = x.reshape(-1,1)
+        return gp.sample_y(covariates,random_state=seed).reshape(*org_shape) * std + mean
 
     return f
 
