@@ -4,6 +4,9 @@ from scipy.optimize import minimize, minimize_scalar, brentq
 import cvxpy as cp
 import time
 
+from sklearn.linear_model import lars_path_gram
+from bisect import bisect_left
+
 def ridge(A,b,l):
     n = A.shape[1]
     x = np.dot(np.linalg.inv((np.transpose(A) @ A) + l*np.eye(n)) @ np.transpose(A),b)
@@ -440,7 +443,56 @@ class UnitLstsqKKT_brent:
             return (obj[0, index_best] / self.m, np.ravel(y_best))
         else:
             return (obj[0, index_best], np.ravel(y_best))
+
+
+class UnitLstsqLARS:
+
+    def __init__(self,A):
         
+        self.A_T = A.T
+        self.A = A
+        self.gram = A.T @ A
+        self.m, self.n = A.shape
+        
+    
+    def solve(self,b,take_mean=True):
+
+        if b is None:
+            Xy = np.zeros(self.n,)
+        else:
+            Xy = np.dot(self.A_T,b)
+
+        alphas, _, coefs = lars_path_gram(Xy=Xy, Gram=self.gram, n_samples=self.m, method='lasso')
+
+        norms = np.sum(np.abs(coefs),axis=0)
+
+        index = bisect_left(norms,1.0)
+
+        if index == len(norms):
+            weights = coefs[:,-1] / norms[-1]
+        elif norms[index] == 1.0:
+            weights = coefs[:,index]
+        else:
+            coefs_start = coefs[:,index]
+            coefs_end = coefs[:,index-1]
+            t_start = alphas[index]
+            t_end = alphas[index-1]
+            delta_t = t_end - t_start
+    
+            def f(t):
+                return np.sum(np.abs((t-t_start)*(coefs_end - coefs_start)/delta_t + coefs_start)) - 1
+        
+            result, rep = brentq(f, t_start, t_end, full_output=True)
+            weights = (result-t_start)*(coefs_end - coefs_start)/delta_t + coefs_start
+
+        if take_mean:
+            loss = np.sum(np.power(np.dot(self.A,weights) - b,2)) / self.m
+        else:
+            loss = np.sum(np.power(np.dot(self.A,weights) - b,2)) 
+
+        return (loss,weights)
+
+    
 
 
 if __name__ == "__main__":
@@ -448,55 +500,80 @@ if __name__ == "__main__":
 
     np.random.seed(0)
 
-    num_tests = 10
+    num_tests = 1
+    scale_factor  = 100 # The bigger the scale_factor the less uniform entries are
+    m = 1000
+    n = 2
 
     for i in range(num_tests):
 
-        A = np.random.uniform(0.0,1.0,(1000,10))
-        b = np.random.uniform(0.0,1.0,(1000,1))
+        print("-"*10)
+        print(f"Test {i+1}/{num_tests}")
+
+        A = np.random.uniform(0.0,1.0,(m,n))
+        b = np.random.uniform(0.0,1.0,(m,1))
+
+        # I want the matrix A and vector b to have entries from widely different scales
         for i in range(A.shape[0]):
             for j in range(A.shape[1]):
                 if np.random.rand() > 0.5:
-                    A[i,j] /= 1000000000
+                    A[i,j] /= scale_factor
                 else:
-                    A[i,j] *= 1000000000
+                    A[i,j] *= scale_factor
         
         for i in range(b.shape[0]):
             if np.random.rand() > 0.5:
-                b[i,0] /= 1000000000
+                b[i,0] /= scale_factor
             else:
-                b[i,0] *= 1000000000
-
+                b[i,0] *= scale_factor
 
         b = b.reshape(-1,1)
 
         solver1 = UnitLstsqSDR(A)
         start = time.time()
         loss1,x1 = solver1.solve(b, take_mean=False)
-        end = time.time()
-        print(f"SDR took {end-start} seconds")
+        end = time.time()  
         if loss1 is not None:
-            print(loss1)
-            print(np.linalg.norm(x1,2))
+            print(f"SDR | Loss: {loss1} | Time: {end-start} seconds")
 
         solver2 = UnitLstsqSVD(A)
         b=b.reshape(-1,)
         start = time.time()
-        loss2,x2 = solver2.solve(b,take_mean=False)
+        loss2,x2 = solver2.solve(b)
         end = time.time()
-        print(f"SVD took {end-start} seconds")
         if loss2 is not None:
-            print(loss2)
-            print(np.linalg.norm(x2,2))
+            print(f"SVD | Loss: {loss2} | Time: {end-start} seconds")
+            print(x2)
 
         solver3 = UnitLstsqKKT(A)
-        b = b.reshape(-1,1)
+        b = b.reshape(-1, 1)
         start = time.time()
-        loss3,x3 = solver3.solve(b,take_mean=False)
-        end = time.time()
-        print(f"KKT took {end-start} seconds")
-        print(loss3)
-        print(np.linalg.norm(x3,2))
+        try:
+            loss3, x3 = solver3.solve(b, take_mean=False)
+            end = time.time()
+            print(f"KKT | Loss {loss3} | Time: {end-start} seconds")
+        except:
+            print("KKT failed")
+       
 
+        solver4 = UnitLstsqKKT_brent(A)
+        b = b.reshape(-1, 1)
+        start = time.time()
+        try:
+            loss4, x4 = solver4.solve(b, take_mean=False)
+            end = time.time()
+            print(f"KKT-Brent | Loss {loss4} | Time: {end - start} seconds")
+        except:
+            print("KKT-Brent failed")
 
+        solver5 = UnitLstsqLARS(A)
+        b = b.reshape(-1,)
+        start = time.time()
+        try: 
+            loss5, x5 = solver5.solve(b, take_mean=False)
+            end = time.time()
+            print(f"LARS | Loss {loss5} | Time: {end - start} seconds")
+            print(x5)
+        except:
+            print("LARS failed")
 

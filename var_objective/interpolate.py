@@ -34,11 +34,11 @@ def estimate_fields(observed_grid, observed_dataset, full_grid, seed=0):
             u_pred_j = full_grid.from_labels_to_grid(u_pred_j)
             U_est[j] = u_pred_j
 
-            fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-            # Plot the surface.
-            surf = ax.plot_surface(full_grid.by_axis()[0], full_grid.by_axis()[1], u_pred_j, linewidth=0, antialiased=False)
-            ax.scatter(observed_grid.by_axis()[0], observed_grid.by_axis()[1],u_obs_j)
-            plt.show()
+            # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+            # # Plot the surface.
+            # surf = ax.plot_surface(full_grid.by_axis()[0], full_grid.by_axis()[1], u_pred_j, linewidth=0, antialiased=False)
+            # ax.scatter(observed_grid.by_axis()[0], observed_grid.by_axis()[1],u_obs_j)
+            # plt.show()
 
         samples_list.append(U_est)
 
