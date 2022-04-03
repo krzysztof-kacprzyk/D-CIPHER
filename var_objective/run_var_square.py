@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     
 
-    dt = datetime.now().strftime("%d-%m-%YT%H.%M.%S")
+    dt = datetime.now().strftime("%Y-%m-%dT%H.%M.%S")
     filename = f"results/run_var_square_{dt}"
 
     gp_params = get_gp_params()

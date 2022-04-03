@@ -39,7 +39,7 @@ class UnitLstsqSVD:
 
         self.cov_mat = np.transpose(A) @ A
 
-        mp.dps = 50
+        mp.dps = 75
 
     def _check_if_zero(vector):
         if np.sum(vector == 0.0) == len(vector):
