@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     observed_grid = EquiPartGrid(widths, args.frequency_per_dim)
 
-    dt = datetime.now().strftime("%d-%m-%YT%H.%M.%S")
+    dt = datetime.now().strftime("%Y-%m-%dT%H.%M.%S")
     filename = f"results/run_mse_square_{dt}"
 
     gp_params = get_gp_params()
