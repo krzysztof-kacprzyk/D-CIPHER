@@ -60,13 +60,16 @@ if __name__ == '__main__':
     parser.add_argument('basis', choices=['fourier','2spline2D', '2spline2Dtrans'])
     parser.add_argument('max_ind_basis', type=int, help='Maximum index for test functions. Number of used test functions is a square of this number')
     parser.add_argument('num_trials', type=int, help='Number of trials')
+    parser.add_argument('normalization',choices=['l1','l2'])
+    parser.add_argument('solver', help='Least squares solver')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num_samples', type=int, default=1)
+
 
     args = parser.parse_args()
 
     INF_FLOAT = 9.0e+300
-    LSTSQ_SOLVER = 'svd'
+    LSTSQ_SOLVER = args.solver
 
     pdes = get_pdes(args.name)
 
@@ -154,7 +157,7 @@ gplearn config: {gp_params}
 
        
 
-        L_target, g_target = pdes.get_expression_normalized()[args.field_index]
+        L_target, g_target = pdes.get_expression_normalized(norm=args.normalization)[args.field_index]
         target_weights = L_target.get_adjoint().vectorize()[1:] # exclude zero-order partial
         target_g_numpy = pdes.numpify_g(g_target)
         variables_part = [X[:,i] for i in range(pdes.M+pdes.N)]

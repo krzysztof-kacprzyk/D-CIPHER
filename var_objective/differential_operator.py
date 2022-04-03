@@ -103,12 +103,18 @@ class LinearOperator():
         
         return encoded
 
-    def get_length(self):
+    def get_length(self, norm='l2'):
         result = 0
-        for coeff in self.coeffs:
-            result += (coeff ** 2)
-        return np.sqrt(result)
-    
+        if norm == 'l2':
+            for coeff in self.coeffs:
+                result += (coeff ** 2)
+            return np.sqrt(result)
+        elif norm == 'l1':
+            for coeff in self.coeffs:
+                result += np.abs(coeff)
+            return result
+
+        
 
     def from_vector(vector, dimension, order, zero_partial=True):
     
@@ -148,9 +154,9 @@ class LinearOperator():
                 partial = partial.next_partial()
         return partials
 
-    def normalize(self):
+    def normalize(self, norm='l2'):
         new_coeffs = []
-        length = self.get_length()
+        length = self.get_length(norm=norm)
         for coeff in self.coeffs:
             new_coeffs.append(coeff / length)
         return LinearOperator(new_coeffs, self.partials)

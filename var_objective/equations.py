@@ -23,6 +23,8 @@ def get_pdes(name, parameters=None):
         return HeatEquation1(1.0)
     elif name == "HeatEquation2":
         return HeatEquation2(0.2)
+    elif name == "HeatEquation2_L1":
+        return HeatEquation2_L1(0.2)
     else:
         raise ValueError(f"Unknown equation: {name}")
 
@@ -64,13 +66,13 @@ class PDE(ABC):
     def __str__(self):
         return "\n".join([f"({L})u - {g} = 0" for L,g in self.get_expression()])
 
-    def get_expression_normalized(self):
+    def get_expression_normalized(self,norm='l2'):
         equations = self.get_expression()
         new_equations = []
         for equation in equations:
             L, g  = equation
-            length = L.get_length()
-            L = L.normalize()
+            length = L.get_length(norm=norm)
+            L = L.normalize(norm=norm)
             g = g / length
             new_equations.append((L,g))
         return new_equations
@@ -185,6 +187,8 @@ class TestEquation2(PDE):
             return -0.5 * np.cos(x[1]) + h(x[0] - x[1]/2) + 0.5
 
         return [func]
+
+
 
 
 class SLM1(PDE):
@@ -335,6 +339,64 @@ class HeatEquation2(PDE):
             raise ValueError("Wrong number of boundary functions")
 
         heat_source = lambda X: np.sqrt(1.04) * X[0] * X[1]
+        boundary1  = lambda x: np.zeros_like(x)
+        boundary2 = lambda x: np.zeros_like(x)
+        initial_temp = boundary_functions[0]
+
+        def func(grid):
+            assert grid.num_dims == 2
+            axes = grid.axes
+            widths = grid.widths
+            delta_t = 0.001
+            delta_x = 0.001
+            heat_equation = HeatEquationNeumann1D(self.params['k'], heat_source, boundary1, boundary2, initial_temp)
+            U = heat_equation.btcs(widths[0], widths[1], delta_t, delta_x)
+            sol = np.zeros(grid.shape)
+            grid_trans = grid.as_grid()
+            for t, g_t in enumerate(grid_trans):
+                for x, g_t_x in enumerate(g_t):
+                    ind_t = int(g_t_x[0] / delta_t)
+                    ind_x = int(g_t_x[1] / delta_x)
+                    sol[t,x] = U[ind_t, ind_x]
+
+            return sol
+
+        return [func]
+
+class HeatEquation2_L1(PDE):
+
+    def __init__(self, k):
+        super().__init__({'k': k})
+
+    @property
+    def name(self):
+        return "HeatEquation1"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 1
+
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        g = Function('g')
+        L = LinearOperator([1.0,-self.params['k']],[Partial([1,0]),Partial([0,2])])
+        g = (1+np.abs(self.params['k'])) * x0 * x1
+        return [(L,g)]
+    
+    def get_solution(self, boundary_functions):
+
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+
+        heat_source = lambda X: (1+np.abs(self.params['k'])) * X[0] * X[1]
         boundary1  = lambda x: np.zeros_like(x)
         boundary2 = lambda x: np.zeros_like(x)
         initial_temp = boundary_functions[0]

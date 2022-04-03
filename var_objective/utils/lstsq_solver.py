@@ -8,6 +8,9 @@ import torch
 from sklearn.linear_model import lars_path_gram
 from bisect import bisect_left
 import mpmath as mp
+from itertools import product
+
+from var_objective.utils.mirror_descent import MirrorDescentSimplex
 
 def ridge(A,b,l):
     n = A.shape[1]
@@ -557,6 +560,265 @@ class UnitLstsqPGD:
                 w = module.weight.data
                 w.div_(torch.linalg.vector_norm(w, 1).expand_as(w))
         
+class UnitLstsqMD:
+    def __init__(self,A):
+        self.A = A
+        self.A_T = A.T
+        self.gram = self.A_T @ self.A
+        self.m, self.n = A.shape
+        self.orthants = list(product([-1,1],repeat=self.n))
+        self.gram_norm = np.max(np.linalg.norm(self.gram,np.inf,axis=0))
+        self.A_norm = np.max(np.linalg.norm(self.A,2,axis=0))
+
+       
+
+    def solve(self,b,take_mean=True):
+        if b is None:
+            b = np.zeros(self.m)
+
+        c = np.dot(self.A_T,b)
+        c_inf = np.linalg.norm(c,np.inf)
+        l_constant = 2*(c_inf + self.gram_norm)
+
+        def glob_f(x):
+            return np.sum(np.power(np.dot(self.A,x)-b,2))
+        def glob_df(x):
+            return 2*(np.dot(self.gram,x)-c)
+
+        f_values = []
+        df_values = []
+        for orth in self.orthants:
+            f_values.append(glob_f(np.array(orth)))
+            df_values.append(glob_df(np.array(orth)))
+        
+        max_f_value = np.max(f_values)
+        df_norms = [np.linalg.norm(d,ord=np.inf) for d in df_values]
+        max_df_norm = np.max(df_norms)
+
+        sols = []
+        for orth in self.orthants:
+            
+            orth = np.array(orth)
+            def f(x):
+                return np.sum(np.power(np.dot(self.A,x*orth)-b,2))
+            def df(x):
+                return 2*(np.dot(self.gram,x*orth)-c)*orth
+            md = MirrorDescentSimplex(self.n,df)
+            
+            # diameter = self.A_norm ** 2 + 2*c_inf + np.sum(b ** 2) - f(md.x)
+            diameter = max_f_value - f(md.x)
+            sol = md.optimize(20,20/max_df_norm)
+            sols.append(sol*orth)
+        
+       
+        losses = [glob_f(sol) for sol in sols]
+        try:
+            index = np.argmin(losses)
+        except:
+            print("Empty list")
+            return (None,None)
+        weights = sols[index]
+        loss = losses[index]
+
+        if take_mean:
+            loss /= self.m
+        
+        return (loss,weights)
+
+
+class UnitL1NormLeastSquare_CVX:
+    # this function solves 2^n optimization problems using CVX and picks the minimal loss value
+    # this approach will give us the optimal solution
+
+    def __init__(self, A):
+        self.A = np.asmatrix(A)
+        self.m, self.n = A.shape
+
+        self.cov_mat = np.transpose(A) @ A
+
+    def solve(self, b, take_mean=True):
+
+        if b is None:
+            b = np.zeros((self.m, 1))
+        else:
+            b = b.reshape(-1, 1)
+
+        b = np.asmatrix(b)
+
+        num_simplex = 2 ** self.n
+        obj_candidate = np.zeros((1, num_simplex))
+        x_candidate = np.zeros((self.n, num_simplex))
+        for index_simplex in range(num_simplex):
+            simplex_representation_string = f'{index_simplex:0{self.n}b}'  # a string of the binary representation
+            simplex_representation_array = np.array(
+                [int(x) for x in simplex_representation_string])  # convert the string to a numeric array
+            simplex_representation_array = 2 * simplex_representation_array - 1  # map 0's to -1's
+            D = np.asmatrix(np.diag(simplex_representation_array))  # define the diagonal matrix D
+
+            # define the variable
+            y = cp.Variable((self.n, 1))
+
+            # create the constraints
+            constraints = [y >= 0, cp.sum(y) == 1]
+
+            # solve the optimization problem
+            prob = cp.Problem(cp.Minimize(cp.norm(self.A @ D @ y - b)),
+                              constraints)
+            prob.solve()
+
+            if prob.status != 'optimal':
+                print("CVX failed")
+                return (None, None)
+
+            obj_candidate[0, index_simplex] = prob.value
+            x_candidate[:, index_simplex] = simplex_representation_array * np.transpose(y.value)
+
+        index_best = np.argmin(obj_candidate)
+        x_best = x_candidate[:, index_best]
+
+        print(f"signs of the optimal solution: {np.transpose(np.sign(x_best))}")
+
+        # print result.
+        # print("The best objective value recovered is", obj_recovered[index_best])
+        # print("The best recovered solution is")
+        # print(x_best)
+        if take_mean:
+            obj_best = obj_candidate[0, index_best] ** 2 / self.m
+        else:
+            obj_best = obj_candidate[0, index_best] ** 2
+        return obj_best, x_best.flatten()
+
+
+class UnitL1NormLeastSquare_CVX_heuristic:
+    # solves the standard least square problem (i.e., no constraint)
+    # solves one optimization problem, which solution has the same signs as the solution to the standard least square problem
+
+    def __init__(self, A):
+        self.A = np.asmatrix(A)
+        self.m, self.n = A.shape
+
+        self.cov_mat = np.transpose(A) @ A
+        self.inverse_cov_mat = np.linalg.inv(self.cov_mat)
+
+    def solve(self, b, take_mean=True):
+
+        if b is None:
+            b = np.zeros((self.m, 1))
+        else:
+            b = b.reshape(-1, 1)
+
+        b = np.asmatrix(b)
+
+        # define the variable
+        x = self.inverse_cov_mat @ np.transpose(self.A) @ b
+
+        '''
+        # solve the optimization problem
+        prob = cp.Problem(cp.Minimize(cp.norm(self.A @ x - b)))
+        prob.solve()
+        '''
+
+        print(f"L-1 norm of least square: {np.sum(np.absolute(x))}")
+
+        sign_x = np.sign(np.array(x))
+        sign_x[sign_x == 0] = 1
+        D = np.asmatrix(np.diag(sign_x.reshape(self.n, )))
+
+        print(f"signs of the least square solution: {np.transpose(sign_x)}")
+        print(f"signs of inv(A^T*A)*sign(x): {np.transpose(np.sign(self.inverse_cov_mat @ sign_x))}")
+
+        # define the variable
+        y = cp.Variable((self.n, 1))
+
+        # create the constraints
+        constraints = [y >= 0, cp.sum(y) == 1]
+
+        # solve the optimization problem
+        prob = cp.Problem(cp.Minimize(cp.norm(self.A @ D @ y - b)),
+                          constraints)
+        prob.solve()
+
+        if prob.status != 'optimal':
+            print("CVX failed")
+            return (None, None)
+
+        if take_mean:
+            obj = prob.value ** 2 / self.m
+        else:
+            obj = prob.value ** 2
+        return obj, y.value.flatten()
+
+
+class UnitL1NormLeastSquare_heuristic:
+    # finds a solution when the L-1 norm of the standard least square solution is smaller than 1
+    # in this case, we need \lambda < 0
+    # keep the same signs as the solution to the standard least square problem
+    # since the L-1 norm is strictly decreasing in \lambda, the solution can be found efficiently by Brent's method
+
+    def __init__(self, A):
+        self.A = np.asmatrix(A)
+        self.m, self.n = A.shape
+
+        self.cov_mat = np.transpose(A) @ A
+        self.inverse_cov_mat = np.linalg.inv(self.cov_mat)
+
+    def solve(self, b, standard_least_square, take_mean=True):
+
+        sign_x = np.sign(np.array(standard_least_square))
+        sign_x[sign_x == 0] = 1
+        y = self.inverse_cov_mat @ sign_x
+
+        def f(t):
+            return np.sum(np.abs(standard_least_square - t * y)) - 1
+
+        lower_bound = np.max((standard_least_square - sign_x) / y)
+        dual_variable, _ = brentq(f, lower_bound, 0.0, full_output=True)
+
+        x = standard_least_square - dual_variable * y
+
+        if take_mean:
+            obj = np.linalg.norm(self.A @ x - b) ** 2 / self.m
+        else:
+            obj = np.linalg.norm(self.A @ x - b) ** 2
+        return obj, x.flatten()
+
+
+class UnitLstsqHeuristicFull:
+
+    def __init__(self,A):
+        self.A = np.asmatrix(A)
+        self.m, self.n = A.shape
+
+        self.pre_standard_least_squares = np.linalg.inv(np.transpose(A) @ A) @ np.transpose(A)
+        self.heuristic_solver =  UnitL1NormLeastSquare_heuristic(A)
+        self.lars_solver = UnitLstsqLARS(A)
+
+
+    def solve(self, b, take_mean=True):
+        
+        if b is None:
+            b = np.zeros((self.m, 1))
+        else:
+            b = b.reshape(-1, 1)
+
+        standard_least_square = self.pre_standard_least_squares @ b
+        L1_norm = np.sum(np.absolute(standard_least_square))
+
+        if L1_norm == 1.0:
+            loss = np.linalg.norm(self.A @ standard_least_square - b)**2
+            if take_mean:
+                loss /= self.m
+            x = standard_least_square
+        elif L1_norm < 1.0:
+            loss, x = self.heuristic_solver.solve(b, standard_least_square, take_mean=take_mean)
+        else:
+            b = b.reshape(-1, )
+            loss, x = self.lars_solver.solve(b, take_mean=take_mean)
+
+        return loss, x
+
+
+
 
 
 if __name__ == "__main__":
@@ -564,8 +826,8 @@ if __name__ == "__main__":
 
     np.random.seed(0)
 
-    num_tests = 10
-    scale_factor  = 10000 # The bigger the scale_factor the less uniform entries are
+    num_tests = 1
+    scale_factor  = 100 # The bigger the scale_factor the less uniform entries are
     m = 10000
     n = 5
 
@@ -574,8 +836,9 @@ if __name__ == "__main__":
         print("-"*10)
         print(f"Test {i+1}/{num_tests}")
 
-        A = np.random.uniform(0.0,1.0,(m,n))
-        b = np.random.uniform(0.0,1.0,(m,1))
+        A = np.random.normal(0.0,1.0,(m,n))
+        b = np.random.normal(0.0,1.0,(m,1))
+       
 
         # I want the matrix A and vector b to have entries from widely different scales
         for i in range(A.shape[0]):
@@ -585,50 +848,52 @@ if __name__ == "__main__":
                 else:
                     A[i,j] *= scale_factor
         
+        # b = np.dot(A,np.array([0.8,0,0,0,0.2]))
+        
         for i in range(b.shape[0]):
             if np.random.rand() > 0.5:
                 b[i,0] /= scale_factor
             else:
                 b[i,0] *= scale_factor
 
-        b = b.reshape(-1,1)
+        # b = b.reshape(-1,1)
 
-        solver1 = UnitLstsqSDR(A)
-        start = time.time()
-        loss1,x1 = solver1.solve(b, take_mean=False)
-        end = time.time()  
-        if loss1 is not None:
-            print(f"SDR | Loss: {loss1} | Time: {end-start} seconds")
+        # solver1 = UnitLstsqSDR(A)
+        # start = time.time()
+        # loss1,x1 = solver1.solve(b, take_mean=False)
+        # end = time.time()  
+        # if loss1 is not None:
+        #     print(f"SDR | Loss: {loss1} | Time: {end-start} seconds")
 
-        solver2 = UnitLstsqSVD(A)
-        b=b.reshape(-1,)
-        start = time.time()
-        loss2,x2 = solver2.solve(b, take_mean=False)
-        end = time.time()
-        if loss2 is not None:
-            print(f"SVD | Loss: {loss2} | Time: {end-start} seconds")
-            print(x2)
+        # solver2 = UnitLstsqSVD(A)
+        # b=b.reshape(-1,)
+        # start = time.time()
+        # loss2,x2 = solver2.solve(b, take_mean=False)
+        # end = time.time()
+        # if loss2 is not None:
+        #     print(f"SVD | Loss: {loss2} | Time: {end-start} seconds")
+        #     print(x2)
 
-        solver3 = UnitLstsqKKT(A)
-        b = b.reshape(-1, 1)
-        start = time.time()
-        try:
-            loss3, x3 = solver3.solve(b, take_mean=False)
-            end = time.time()
-            print(f"KKT | Loss {loss3} | Time: {end-start} seconds")
-        except:
-            print("KKT failed")
+        # solver3 = UnitLstsqKKT(A)
+        # b = b.reshape(-1, 1)
+        # start = time.time()
+        # try:
+        #     loss3, x3 = solver3.solve(b, take_mean=False)
+        #     end = time.time()
+        #     print(f"KKT | Loss {loss3} | Time: {end-start} seconds")
+        # except:
+        #     print("KKT failed")
        
 
-        solver4 = UnitLstsqKKT_brent(A)
-        b = b.reshape(-1, 1)
-        start = time.time()
-        try:
-            loss4, x4 = solver4.solve(b, take_mean=False)
-            end = time.time()
-            print(f"KKT-Brent | Loss {loss4} | Time: {end - start} seconds")
-        except:
-            print("KKT-Brent failed")
+        # solver4 = UnitLstsqKKT_brent(A)
+        # b = b.reshape(-1, 1)
+        # start = time.time()
+        # try:
+        #     loss4, x4 = solver4.solve(b, take_mean=False)
+        #     end = time.time()
+        #     print(f"KKT-Brent | Loss {loss4} | Time: {end - start} seconds")
+        # except:
+        #     print("KKT-Brent failed")
 
         solver5 = UnitLstsqLARS(A)
         b = b.reshape(-1,)
@@ -641,14 +906,41 @@ if __name__ == "__main__":
         except:
             print("LARS failed")
 
-        solver6 = UnitLstsqPGD(A)
+        solver6 = UnitLstsqMD(A)
         b = b.reshape(-1,)
         start = time.time()
         try: 
             loss6, x6 = solver6.solve(b, take_mean=False)
             end = time.time()
-            print(f"PGD | Loss {loss6} | Time: {end - start} seconds")
+            print(f"MD | Loss {loss6} | Time: {end - start} seconds")
             print(x6)
         except:
-            print("PGD failed")
+            print("MD failed")
+
+        solver7 = UnitL1NormLeastSquare_CVX(A)
+        start = time.time()
+        loss7, x7 = solver7.solve(b, take_mean=False)
+        end = time.time()
+        if loss7 is not None:
+            print(f"CVX | Loss: {loss7} | Time: {end - start} seconds")
+            print(x7)
+
+        solver8 = UnitL1NormLeastSquare_CVX_heuristic(A)
+        start = time.time()
+        loss8, x8 = solver8.solve(b, take_mean=False)
+        end = time.time()
+        if loss8 is not None:
+            print(f"CVX-heuristic | Loss: {loss8} | Time: {end - start} seconds")
+            print(x8)
+
+        solver9 = UnitLstsqHeuristicFull(A)
+        b = b.reshape(-1,1)
+        start = time.time()
+        loss9, x9 = solver9.solve(b, take_mean=False)
+        end = time.time()
+        if loss9 is not None:
+            print(f"heuristic | Loss: {loss9} | Time: {end - start} seconds")
+            print(x9)
+
+    
 
