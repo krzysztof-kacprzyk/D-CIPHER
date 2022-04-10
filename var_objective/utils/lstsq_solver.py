@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize, minimize_scalar, brentq
@@ -9,6 +10,8 @@ from sklearn.linear_model import lars_path_gram
 from bisect import bisect_left
 import mpmath as mp
 from itertools import product
+import glob
+import pandas as pd
 
 from var_objective.utils.mirror_descent import MirrorDescentSimplex
 
@@ -502,6 +505,98 @@ class UnitLstsqLARS:
 
         return (loss,weights)
 
+class UnitLstsqLARSImproved:
+
+    def __init__(self,A):
+        
+        self.A_T = A.T
+        self.A = A
+        self.gram = A.T @ A
+        self.m, self.n = A.shape
+
+        self.cvx = UnitL1NormLeastSquare_CVX(A)
+        self.homogeneous_loss, self.homogeneous_solution = self.cvx.solve(np.zeros((self.m,1)),take_mean=False)
+        
+    
+    def solve(self,b,take_mean=True):
+
+        if b is None:
+            if take_mean:
+                loss = self.homogeneous_loss / self.m
+            else:
+                loss = self.homogeneous_loss
+            return (loss, self.homogeneous_solution)
+        else:
+            Xy = np.dot(self.A_T,b)
+
+        alphas, _, coefs = lars_path_gram(Xy=Xy, Gram=self.gram, n_samples=self.m, method='lasso')
+
+        norms = np.sum(np.abs(coefs),axis=0)
+
+        index = bisect_left(norms,1.0)
+
+        if index == len(norms):
+            if norms[-1] == 0.0:
+                # We have a homogeneous case
+                if take_mean:
+                    loss = self.homogeneous_loss / self.m
+                else:
+                    loss = self.homogeneous_loss
+                return (loss, self.homogeneous_solution)
+
+            coefs_start = coefs[:,-1]
+            coefs_end = coefs[:,-2]
+            t_start = alphas[-1]
+            t_end = alphas[-2]
+            delta_t = t_end - t_start
+
+            def f(t):
+                return np.sum(np.abs((t-t_start)*(coefs_end - coefs_start)/delta_t + coefs_start)) - 1
+            t_optim_end = t_start # it should be 0 but sometimes it's just very close to 0
+
+            differences = coefs_end - coefs_start
+            values_at_0 = coefs_start
+
+            mask = (differences * values_at_0) > 0.0
+            if np.sum(mask) == 0:
+                ground_zero = 0.0
+            else:
+                ground_zero = - np.max((values_at_0[mask] * delta_t) / differences[mask])
+            # from ground_zero the norm can only increase (when alpha goes more negative)
+            if f(ground_zero) == 0.0:
+                result = ground_zero
+            elif f(ground_zero) > 0:
+                t_optim_start = ground_zero
+                result, rep = brentq(f, t_optim_start, t_optim_end, full_output=True)
+            else:
+                abs_slopes_sum = np.sum(np.abs((coefs_end - coefs_start)/delta_t))
+                result = ground_zero + f(ground_zero) / abs_slopes_sum
+           
+            weights = (result-t_start)*(coefs_end - coefs_start)/delta_t + coefs_start
+
+        elif norms[index] == 1.0:
+            weights = coefs[:,index]
+        else:
+            coefs_start = coefs[:,index]
+            coefs_end = coefs[:,index-1]
+            t_start = alphas[index]
+            t_end = alphas[index-1]
+            delta_t = t_end - t_start
+    
+            def f(t):
+                return np.sum(np.abs((t-t_start)*(coefs_end - coefs_start)/delta_t + coefs_start)) - 1
+        
+            result, rep = brentq(f, t_start, t_end, full_output=True)
+            weights = (result-t_start)*(coefs_end - coefs_start)/delta_t + coefs_start
+
+        if take_mean:
+            loss = np.sum(np.power(np.dot(self.A,weights) - b,2)) / self.m
+        else:
+            loss = np.sum(np.power(np.dot(self.A,weights) - b,2)) 
+
+        return (loss,weights)
+
+
 class UnitLstsqPGD:
     def __init__(self,A):
         self.A = torch.from_numpy(A).float()
@@ -803,15 +898,18 @@ class UnitLstsqHeuristicFull:
 
         standard_least_square = self.pre_standard_least_squares @ b
         L1_norm = np.sum(np.absolute(standard_least_square))
-
+        print(L1_norm)
         if L1_norm == 1.0:
+            print("Standard LSTSQ")
             loss = np.linalg.norm(self.A @ standard_least_square - b)**2
             if take_mean:
                 loss /= self.m
             x = standard_least_square
         elif L1_norm < 1.0:
+            print("Heuristic")
             loss, x = self.heuristic_solver.solve(b, standard_least_square, take_mean=take_mean)
         else:
+            print("LARS")
             b = b.reshape(-1, )
             loss, x = self.lars_solver.solve(b, take_mean=take_mean)
 
@@ -826,35 +924,21 @@ if __name__ == "__main__":
 
     np.random.seed(0)
 
-    num_tests = 1
-    scale_factor  = 100 # The bigger the scale_factor the less uniform entries are
-    m = 10000
-    n = 5
+    # num_tests = 1
+    # scale_factor  = 100 # The bigger the scale_factor the less uniform entries are
+    # m = 10000
+    # n = 5
 
-    for i in range(num_tests):
+    file_names = glob.glob("results/matrices/*.p")
 
+    df = pd.DataFrame()
+
+    for i, file_name in enumerate(file_names):
+
+        if i == 2000:
+            break
         print("-"*10)
-        print(f"Test {i+1}/{num_tests}")
-
-        A = np.random.normal(0.0,1.0,(m,n))
-        b = np.random.normal(0.0,1.0,(m,1))
-       
-
-        # I want the matrix A and vector b to have entries from widely different scales
-        for i in range(A.shape[0]):
-            for j in range(A.shape[1]):
-                if np.random.rand() > 0.5:
-                    A[i,j] /= scale_factor
-                else:
-                    A[i,j] *= scale_factor
-        
-        # b = np.dot(A,np.array([0.8,0,0,0,0.2]))
-        
-        for i in range(b.shape[0]):
-            if np.random.rand() > 0.5:
-                b[i,0] /= scale_factor
-            else:
-                b[i,0] *= scale_factor
+        print(f"Test {i+1}/{len(file_names)}")
 
         # b = b.reshape(-1,1)
 
@@ -895,6 +979,14 @@ if __name__ == "__main__":
         # except:
         #     print("KKT-Brent failed")
 
+        with open(file_name,'rb') as file:
+            problem = pickle.load(file)
+        A = problem['X']
+        b = problem['b']
+
+        record = {}
+
+    
         solver5 = UnitLstsqLARS(A)
         b = b.reshape(-1,)
         start = time.time()
@@ -904,7 +996,11 @@ if __name__ == "__main__":
             print(f"LARS | Loss {loss5} | Time: {end - start} seconds")
             print(x5)
         except:
+            loss5 = np.nan
             print("LARS failed")
+        record['lars_loss'] = loss5
+        record['lars_time'] = end - start
+
 
         solver6 = UnitLstsqMD(A)
         b = b.reshape(-1,)
@@ -915,7 +1011,10 @@ if __name__ == "__main__":
             print(f"MD | Loss {loss6} | Time: {end - start} seconds")
             print(x6)
         except:
+            loss6 = np.nan
             print("MD failed")
+        record['md_loss'] = loss6
+        record['md_time'] = end - start
 
         solver7 = UnitL1NormLeastSquare_CVX(A)
         start = time.time()
@@ -924,6 +1023,10 @@ if __name__ == "__main__":
         if loss7 is not None:
             print(f"CVX | Loss: {loss7} | Time: {end - start} seconds")
             print(x7)
+        else:
+            loss7 = np.nan
+        record['cvx_loss'] = loss7
+        record['cvx_time'] = end - start
 
         solver8 = UnitL1NormLeastSquare_CVX_heuristic(A)
         start = time.time()
@@ -932,6 +1035,10 @@ if __name__ == "__main__":
         if loss8 is not None:
             print(f"CVX-heuristic | Loss: {loss8} | Time: {end - start} seconds")
             print(x8)
+        else:
+            loss8 = np.nan
+        record['cvx_heur_loss'] = loss8
+        record['cvx_heur_time'] = end - start
 
         solver9 = UnitLstsqHeuristicFull(A)
         b = b.reshape(-1,1)
@@ -941,6 +1048,33 @@ if __name__ == "__main__":
         if loss9 is not None:
             print(f"heuristic | Loss: {loss9} | Time: {end - start} seconds")
             print(x9)
+        else:
+            loss9 = np.nan
+        record['heur_loss'] = loss9
+        record['heur_time'] = end - start
 
+        solver10 = UnitLstsqLARSImproved(A)
+        b = b.reshape(-1,)
+        start = time.time()
+        try: 
+            loss10, x10 = solver10.solve(b, take_mean=False)
+            end = time.time()
+            print(f"LARS_Improved | Loss {loss10} | Time: {end - start} seconds")
+            print(x10)
+        except:
+            loss10 = np.nan
+            print("LARS improved failed")
+        record['lars_imp_loss'] = loss10
+        record['lars_imp_time'] = end - start
+
+
+        b = b.reshape(-1,1)
+        standard_least_square = np.linalg.inv(np.transpose(A) @ A) @ np.transpose(A) @ b
+        L1_norm = np.sum(np.absolute(standard_least_square))
+        record['L1_norm_lstsq'] = L1_norm
+
+        df = df.append(record,ignore_index=True)
+
+    df.to_csv('results/comparison.csv')
     
 
