@@ -58,14 +58,17 @@ if __name__ == '__main__':
     parser.add_argument('frequency_per_dim', type=int, help='Frequency per dimension of generated data')
     parser.add_argument('noise_ratio', type=float, help='Noise ration for data generation')
     parser.add_argument('conditions_set', help='Conditions set name from conditions.py')
-    parser.add_argument('diff_engine', choices=['numpy', 'tv', 'trend', 'spline', 'finite'])
+    parser.add_argument('diff_engine', choices=['numpy', 'tv', 'trend', 'spline', 'finite','gp'])
     parser.add_argument('num_trials', type=int, help='Number of trials')
+    parser.add_argument('normalization',choices=['l1','l2'])
+    parser.add_argument('solver', help='Least squares solver')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num_samples', type=int, default=1)
 
     args = parser.parse_args()
 
     INF_FLOAT = 9999999999999.9
+    LSTSQ_SOLVER = args.solver
 
     pdes = get_pdes(args.name)
 
@@ -105,11 +108,11 @@ gplearn config: {gp_params}
         dimension = pdes.get_expression()[args.field_index][0].dimension
         order = pdes.get_expression()[args.field_index][0].order
 
-        engine = get_diff_engine(args.diff_engine)
+        engine = get_diff_engine(args.diff_engine,seed=seed)
 
         print("Initializing MSE Weights Finder")
         start = time.time()
-        mse_wf = MSEWeightsFinder(observed_dataset,args.field_index,observed_grid,dimension=dimension,order=order,engine=engine,optim_engine='svd',seed=seed)
+        mse_wf = MSEWeightsFinder(observed_dataset,args.field_index,observed_grid,dimension=dimension,order=order,engine=engine,optim_engine=LSTSQ_SOLVER,seed=seed)
         end = time.time()
         print(f"Weight Finder initialized in {end-start} seconds")
 
@@ -137,7 +140,7 @@ gplearn config: {gp_params}
 
         gp_params = get_gp_params()
 
-        L_target, g_target = pdes.get_expression_normalized()[args.field_index]
+        L_target, g_target = pdes.get_expression_normalized(norm=args.normalization)[args.field_index]
         target_weights = L_target.vectorize()[1:] # exclude zero-order partial
         target_g_numpy = pdes.numpify_g(g_target)
         variables_part = [X[:,i] for i in range(pdes.M+pdes.N)]

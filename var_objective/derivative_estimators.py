@@ -5,7 +5,10 @@ from .differential_operator import Partial, _num_combi, LinearOperator
 from .libs import TVRegDiff, dxdt
 from .config import get_tvdiff_params, get_trenddiff_params, get_splinediff_params, get_finitediff_params
 
-def get_diff_engine(name):
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, WhiteKernel, ConstantKernel
+
+def get_diff_engine(name,seed=0):
     if name == 'numpy':
         return NumpyDiff()
     elif name == 'tv':
@@ -16,6 +19,8 @@ def get_diff_engine(name):
         return SplineDiff(get_splinediff_params())
     elif name == 'finite':
         return FiniteDiff(get_finitediff_params())
+    elif name == 'gp':
+        return GPDiff({'seed':seed, 'delta':1e-3})
 
 class DerivativeEngine(ABC):
 
@@ -108,3 +113,30 @@ class FiniteDiff(DerivativeEngine):
     def differentiate(self, scalar_field, grid, variable):
         t = grid.axes[variable]
         return dxdt(scalar_field, t, kind='finite_difference', axis=variable, **self.params)
+
+class GPDiff(DerivativeEngine):
+
+    def __init__(self, params={'seed':0}):
+        super().__init__(params)
+        # Configure Gaussian Process
+        kernel = ConstantKernel()*RBF() + WhiteKernel()
+        self.gpr = GaussianProcessRegressor(kernel=kernel, random_state=self.params['seed'])
+
+    def differentiate(self, scalar_field, grid, variable):
+        u_obs = scalar_field.flatten()
+        mean = np.mean(u_obs)
+        std = np.std(u_obs)
+        org_cov = grid.as_covariates()
+        self.gpr.fit(org_cov, (u_obs - mean)/std)
+
+        delta_t = self.params['delta']
+        diff_vector = np.zeros(org_cov.shape[1])
+        diff_vector[variable] = delta_t
+        forward_cov = org_cov + diff_vector
+        backward_cov = org_cov - diff_vector
+
+        forward_values = self.gpr.predict(forward_cov) * std + mean
+        backward_values = self.gpr.predict(backward_cov) * std + mean
+
+        derivative = (forward_values - backward_values) / (2*delta_t)
+        return derivative.reshape(grid.shape)
