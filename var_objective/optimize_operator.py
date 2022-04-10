@@ -5,8 +5,9 @@ from itertools import product
 from var_objective.grids import EquiPartGrid
 from .differential_operator import LinearOperator
 from .derivative_estimators import all_derivatives
-from .utils.lstsq_solver import UnitLstsqHeuristicFull, UnitLstsqKKT, UnitLstsqKKT_brent, UnitLstsqLARS, UnitLstsqMD, UnitLstsqSDR, UnitLstsqSVD
+from .utils.lstsq_solver import UnitLstsqHeuristicFull, UnitLstsqKKT, UnitLstsqKKT_brent, UnitLstsqLARS, UnitLstsqLARSImproved, UnitLstsqMD, UnitLstsqSDR, UnitLstsqSVD
 
+import pickle
 class VariationalWeightsFinder:
 
     def __init__(self,estimated_dataset, field_index, full_grid, dimension, order, basis, index_limits, optim_engine='svd', seed=0):
@@ -83,6 +84,8 @@ class VariationalWeightsFinder:
             self.weight_finder = UnitLstsqMD(self.X)
         elif optim_engine == 'l1heur':
             self.weight_finder = UnitLstsqHeuristicFull(self.X)
+        elif optim_engine == 'lars-imp':
+            self.weight_finder = UnitLstsqLARSImproved(self.X)
 
     def _calculate_loss(self, g_part, weights):
 
@@ -141,7 +144,11 @@ class VariationalWeightsFinder:
             assert g_integrals.shape == (self.D, self.S)
 
             y = np.reshape(g_integrals,(-1,))
-             
+            # problem = {"X":self.X,"b":y}
+            # id = np.random.randint(0,1000000000)
+            # with open(f"results/matrices/{id}.p",'wb') as file:
+            #     pickle.dump(problem,file)
+            
             loss, weights = self.weight_finder.solve(y,take_mean=True)
 
             return (loss,weights)
@@ -205,6 +212,8 @@ class MSEWeightsFinder:
             self.weight_finder = UnitLstsqMD(self.X)
         elif optim_engine == 'l1heur':
             self.weight_finder = UnitLstsqHeuristicFull(self.X)
+        elif optim_engine == 'lars-imp':
+            self.weight_finder = UnitLstsqLARSImproved(self.X)
 
 
     def _calculate_loss(self, g_part, weights):

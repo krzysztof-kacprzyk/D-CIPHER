@@ -13,7 +13,7 @@ def estimate_fields(observed_grid, observed_dataset, full_grid, seed=0):
     N = observed_dataset.shape[1] # number of dimensions
 
     # Configure Gaussian Process
-    kernel = ConstantKernel()*RBF() + WhiteKernel()
+    kernel = RBF() + WhiteKernel()
     gpr = GaussianProcessRegressor(kernel=kernel, random_state=seed)
 
 
