@@ -43,6 +43,41 @@ class RandomConditions:
     def get_condition_functions(self, index):
         return [generate_random_function(self.length_scale, self.mean_range,self.std_range,seed=seed) for seed in self.seeds[index]]
 
+class RandomCharges2D:
+
+    def __init__(self, num_sources_per_sample, num_samples, seed=0):
+        
+        self.num_conditions_per_sample = 2 # positions and charges
+        self.num_sources_per_sample = num_sources_per_sample
+        self.num_samples = num_samples
+
+        np.random.seed(seed)
+        self.seeds = np.random.randint(0,1000000,size=self.num_samples)
+    
+    def get_num_samples(self):
+        return self.num_samples
+
+    def get_condition_functions(self, index):
+        return generate_random_sources_2D(self.num_sources_per_sample,seed=self.seeds[index]) 
+
+class RandomCharges3D:
+
+    def __init__(self, num_sources_per_sample, num_samples, seed=0):
+        
+        self.num_conditions_per_sample = 2 # positions and charges
+        self.num_sources_per_sample = num_sources_per_sample
+        self.num_samples = num_samples
+
+        np.random.seed(seed)
+        self.seeds = np.random.randint(0,1000000,size=self.num_samples)
+    
+    def get_num_samples(self):
+        return self.num_samples
+
+    def get_condition_functions(self, index):
+        return generate_random_sources_3D(self.num_sources_per_sample,seed=self.seeds[index]) 
+
+
 
 
 def get_conditions_set(name, params={'seed':0, 'num_samples':1}):
@@ -86,8 +121,48 @@ def get_conditions_set(name, params={'seed':0, 'num_samples':1}):
         mean_range = (-1,1)
         std_range = (0.5, 2)
         conditions = RandomConditions(1,params['num_samples'],length_scale, mean_range, std_range, seed=params['seed'])
-
+    elif name == 'CoulombRandom2D':
+        conditions = RandomCharges2D(2,params['num_samples'],seed=params['seed'])
+    elif name == 'CoulombRandom3D':
+        conditions = RandomCharges3D(2,params['num_samples'],seed=params['seed'])
     return conditions
+
+def generate_random_sources_2D(num_sources,seed=0):
+    np.random.seed(seed)
+    locations = []
+    for i in range(num_sources):
+
+        while True:
+            x0 = np.random.uniform(-1,2)
+            x1 = np.random.uniform(-1,2)
+            if (0 <= x0 <= 1) and (0 <= x1 <= 1):
+                continue
+            else:
+                locations.append([x0,x1])
+                break
+    locs = np.stack(locations, axis=0)
+    charges = np.random.uniform(-2,2,num_sources)
+    return [locs,charges]
+
+def generate_random_sources_3D(num_sources,seed=0):
+    np.random.seed(seed)
+    locations = []
+    for i in range(num_sources):
+
+        while True:
+            x0 = np.random.uniform(-1,2)
+            x1 = np.random.uniform(-1,2)
+            x2 = np.random.uniform(-1,2)
+            if (0 <= x0 <= 1) and (0 <= x1 <= 1) and (0 <= x2 <= 1):
+                continue
+            else:
+                locations.append([x0,x1,x2])
+                break
+    locs = np.stack(locations, axis=0)
+    print(locs)
+    charges = np.random.uniform(-2,2,num_sources)
+    return [locs,charges]
+
 
 def generate_random_function(length_scale, mean_range, std_range, seed=0):
 

@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class Conditions:
@@ -41,6 +42,10 @@ def generate_fields(pdes, conditions, grid, noise_ratio, seed=0):
             signal = np.std(raw_scalar_field)
 
             observed_scalar_field = raw_scalar_field + np.random.normal(0,noise_ratio*signal,size=grid.shape)
+
+            # # Plot the contour lines
+            # plt.contourf(grid.by_axis()[0], grid.by_axis()[1], observed_scalar_field, levels=10)
+            # plt.show()
 
             observed_scalar_field_list.append(observed_scalar_field)
         

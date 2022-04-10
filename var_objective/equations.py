@@ -1,4 +1,6 @@
 from multiprocessing import Value
+
+from .coulomb import get_potential_2D, get_potential_3D
 from .differential_operator import LinearOperator, Partial
 from .population_models import SLM
 from .heat_equation import HeatEquationNeumann1D
@@ -25,6 +27,10 @@ def get_pdes(name, parameters=None):
         return HeatEquation2(0.2)
     elif name == "HeatEquation2_L1":
         return HeatEquation2_L1(0.2)
+    elif name == "Coulomb2D":
+        return Coulomb2D(1.0)
+    elif name == "Coulomb3D":
+        return Coulomb3D(1.0)
     else:
         raise ValueError(f"Unknown equation: {name}")
 
@@ -420,6 +426,92 @@ class HeatEquation2_L1(PDE):
             return sol
 
         return [func]
+
+
+class Coulomb2D(PDE):
+
+    def __init__(self,k):
+        super().__init__({'k':k})
+    
+    @property
+    def name(self):
+        return "Coulomb2D"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 2
+    
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        g = Function('g')
+        L = LinearOperator([1.0,1.0],[Partial([2,0]),Partial([0,2])])
+        g = 0.0*x0 + 0.0*x1
+        return [(L,g)]
+
+    def get_solution(self, boundary_functions):
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+    
+        def func(grid):
+            locs = boundary_functions[0]
+            charges = boundary_functions[1]
+            locs[:,0] *= grid.widths[0]
+            locs[:,1] *= grid.widths[1]
+            return get_potential_2D(grid,locs,charges,self.params['k'])
+
+        return [func]
+
+class Coulomb3D(PDE):
+
+    def __init__(self,k):
+        super().__init__({'k':k})
+    
+    @property
+    def name(self):
+        return "Coulomb3D"
+
+    @property
+    def M(self):
+        return 3
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 2 # positions and charges
+    
+    def get_expression(self):
+        x0,x1,x2 = symbols('x0,x1,x2', real=True)
+        g = Function('g')
+        L = LinearOperator([1.0,1.0,1.0],[Partial([2,0,0]),Partial([0,2,0]),Partial([0,0,2])])
+        g = 0.0*x0 + 0.0*x1 + 0.0*x2
+        return [(L,g)]
+
+    def get_solution(self, boundary_functions):
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+    
+        def func(grid):
+            locs = boundary_functions[0]
+            charges = boundary_functions[1]
+            locs[:,0] *= grid.widths[0]
+            locs[:,1] *= grid.widths[1]
+            locs[:,2] *= grid.widths[2]
+            
+            return get_potential_3D(grid,locs,charges,self.params['k'])
+
+        return [func]
+        
 
 
 class Laplace2D(PDE):
