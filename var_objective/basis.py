@@ -183,6 +183,103 @@ class BSplineTrans2D(BasisFunction):
         
         return np.outer(b1_applied, b2_applied) / norm
 
+class BSplineTrans3D(BasisFunction):
+
+    def __init__(self, widths, order, max_indexes):
+
+        assert len(widths) == 3
+
+        self.a = widths[0]
+        self.b = widths[1]
+        self.c = widths[2]
+
+        self.order = order
+
+        self.norm_dict = {0:1/3, 1:11/60, 2:151/1260, 3:15619/181440, 4:655177/9979200}
+
+        if order > 4:
+            raise ValueError("Order can be at most 4 unless you provide normalization constants")
+
+        self.max_indexes = max_indexes
+
+    @property
+    def dimension(self):
+        return 3
+    
+    @property
+    def max_order(self):
+        return self.order
+    
+    @property
+    def num_indexes(self):
+        return 3
+    
+    def get_tensor(self, indexes, grid, partial=None):
+
+        x = grid.by_axis()
+        self._verify(indexes, x.shape[0], partial)
+
+        m = indexes[0]
+        n = indexes[1]
+        o = indexes[2]
+
+        m_max = self.max_indexes[0]
+        n_max = self.max_indexes[1]
+        o_max = self.max_indexes[2]
+
+        width1 = (self.a / m_max)
+        start1 = width1 * (m-1)
+        end1 = width1 * m
+
+        width2 = (self.b / n_max)
+        start2 = width2 * (n-1)
+        end2 = width2 * n
+
+        width3 = (self.c / o_max)
+        start3 = width3 * (o-1)
+        end3 = width3 * o
+
+
+
+        
+        # We need order+1 because we want order-th derivative to be continuous
+        b1 = BSpline.basis_element(np.linspace(start1, end1, self.order+1+2),extrapolate=False)
+        b2 = BSpline.basis_element(np.linspace(start2, end2, self.order+1+2),extrapolate=False)
+        b3 = BSpline.basis_element(np.linspace(start3, end3, self.order+1+2),extrapolate=False)
+
+        axes = grid.axes
+        x1 = axes[0]
+        x2 = axes[1]
+        x3 = axes[1]
+
+        if partial != None:
+
+            o1 = partial.order_list[0]
+            for i in range(o1):
+                b1 = b1.derivative()
+            
+            o2 = partial.order_list[1]
+            for i in range(o2):
+                b2 = b2.derivative()
+
+            o3 = partial.order_list[2]
+            for i in range(o3):
+                b3 = b3.derivative()
+
+        b1_applied = b1(x1)
+        b1_applied[np.isnan(b1_applied)] = 0.0
+
+        b2_applied = b2(x2)
+        b2_applied[np.isnan(b2_applied)] = 0.0
+
+        b3_applied = b3(x2)
+        b3_applied[np.isnan(b3_applied)] = 0.0
+
+        norm = np.sqrt(self.norm_dict[self.order] ** 3 * width1 * width2 * width3)
+       
+        
+        return np.einsum('i,j,k->ijk',b1_applied, b2_applied,b3_applied) / norm
+
         
 
 class FourierSine2D(BasisFunction):

@@ -43,7 +43,7 @@ class RandomConditions:
     def get_condition_functions(self, index):
         return [generate_random_function(self.length_scale, self.mean_range,self.std_range,seed=seed) for seed in self.seeds[index]]
 
-class RandomCharges2D:
+class RandomSources2D:
 
     def __init__(self, num_sources_per_sample, num_samples, seed=0):
         
@@ -60,7 +60,7 @@ class RandomCharges2D:
     def get_condition_functions(self, index):
         return generate_random_sources_2D(self.num_sources_per_sample,seed=self.seeds[index]) 
 
-class RandomCharges3D:
+class RandomSources3D:
 
     def __init__(self, num_sources_per_sample, num_samples, seed=0):
         
@@ -121,10 +121,10 @@ def get_conditions_set(name, params={'seed':0, 'num_samples':1}):
         mean_range = (-1,1)
         std_range = (0.5, 2)
         conditions = RandomConditions(1,params['num_samples'],length_scale, mean_range, std_range, seed=params['seed'])
-    elif name == 'CoulombRandom2D':
-        conditions = RandomCharges2D(2,params['num_samples'],seed=params['seed'])
-    elif name == 'CoulombRandom3D':
-        conditions = RandomCharges3D(2,params['num_samples'],seed=params['seed'])
+    elif name == 'SourcesRandom2D':
+        conditions = RandomSources2D(2,params['num_samples'],seed=params['seed'])
+    elif name == 'SourcesRandom3D':
+        conditions = RandomSources3D(2,params['num_samples'],seed=params['seed'])
     return conditions
 
 def generate_random_sources_2D(num_sources,seed=0):

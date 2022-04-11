@@ -1,5 +1,7 @@
 from multiprocessing import Value
 
+from var_objective.flow import get_flow_potential_2D
+
 from .coulomb import get_potential_2D, get_potential_3D
 from .differential_operator import LinearOperator, Partial
 from .population_models import SLM
@@ -31,6 +33,8 @@ def get_pdes(name, parameters=None):
         return Coulomb2D(1.0)
     elif name == "Coulomb3D":
         return Coulomb3D(1.0)
+    elif name == "Flow2D":
+        return Flow2D()
     else:
         raise ValueError(f"Unknown equation: {name}")
 
@@ -466,6 +470,47 @@ class Coulomb2D(PDE):
             locs[:,0] *= grid.widths[0]
             locs[:,1] *= grid.widths[1]
             return get_potential_2D(grid,locs,charges,self.params['k'])
+
+        return [func]
+
+class Flow2D(PDE):
+
+    def __init__(self):
+        super().__init__(None)
+    
+    @property
+    def name(self):
+        return "Flow2D"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 2
+    
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        g = Function('g')
+        L = LinearOperator([1.0,1.0],[Partial([2,0]),Partial([0,2])])
+        g = 0.0*x0 + 0.0*x1
+        return [(L,g)]
+
+    def get_solution(self, boundary_functions):
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+    
+        def func(grid):
+            locs = boundary_functions[0]
+            strengths = boundary_functions[1]
+            locs[:,0] *= grid.widths[0]
+            locs[:,1] *= grid.widths[1]
+            return get_flow_potential_2D(grid,locs,strengths)
 
         return [func]
 
