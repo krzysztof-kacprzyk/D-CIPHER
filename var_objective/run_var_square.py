@@ -2,6 +2,8 @@ from datetime import datetime
 import numpy as np
 import argparse
 import time
+import pandas as pd
+import pickle
 
 from var_objective.differential_operator import LinearOperator
 from var_objective.utils.gp_utils import gp_to_pysym_with_coef
@@ -32,7 +34,7 @@ def _check_if_zero(vector):
     else:
         return False
 
-def save_output(filename, trial, seed, program, operator, loss, target_loss, target_loss_better_weights, time_elapsed):
+def save_output(filename, trial, seed, program, raw_program, operator, loss, target_loss, target_loss_better_weights, target_weights, best_found_weights, time_elapsed):
     message = f"""
 ----------------------
 Trial: {trial}
@@ -41,10 +43,40 @@ Program: {program}
 Operator: {operator}
 Loss: {loss}
 Target_loss: {target_loss}
+Target_weights: {target_weights}
 Target_loss_better_weights: {target_loss_better_weights}
+Best_found_weights: {best_found_weights}
+Raw_program: {raw_program}
 Time elapsed: {time_elapsed}"""
     with open(filename, 'a') as f:
         f.write(message)
+
+def df_append(old_df, trial, seed, program, raw_program, operator, loss, target_loss, target_loss_better_weights, target_weights, best_found_weights, time_elapsed):
+    df = pd.DataFrame()
+    df['trial'] = [trial]
+    df['seed'] = [seed]
+    df['program'] = [program]
+    weights = operator.vectorize()[1:] #exclude 0 partial
+    for i,x in enumerate(weights):
+        df[f'operator_{i}'] = x
+    df['loss'] = [loss]
+    df['target_loss'] = [target_loss]
+    df['target_loss_better_weights'] = [target_loss_better_weights]
+    df['time_elapsed'] = [time_elapsed]
+    df['raw_program'] = [raw_program]
+    for i,x in enumerate(target_weights):
+        df[f'target_weights_{i}'] = [x]
+    for i,x in enumerate(best_found_weights):
+        df[f'best_found_weights_{i}'] = [x]
+
+    df_new = pd.concat([old_df,df],axis=0)
+    return df_new
+
+def save_meta(filename_pickle, filename_df, global_seed, arguments, gp_config):
+    meta = {'global_seed':global_seed,'arguments':arguments,'gp_config':gp_config,'table':filename_df}
+    with open(filename_pickle, 'wb') as file:
+        pickle.dump(meta,file)
+
 
 
 if __name__ == '__main__':
@@ -81,7 +113,9 @@ if __name__ == '__main__':
     
 
     dt = datetime.now().strftime("%Y-%m-%dT%H.%M.%S")
-    filename = f"results/run_var_square_{dt}"
+    filename = f"results/run_var_square_{dt}.txt"
+    filename_csv = f"results/run_var_square_{dt}_table.csv"
+    filename_meta = f"results/run_var_square_{dt}_meta.p"
 
     gp_params = get_gp_params()
 
@@ -98,7 +132,12 @@ gplearn config: {gp_params}
         np.random.seed(args.seed)
         seeds = np.random.randint(0,1000000,size=args.num_trials)
 
+    df = pd.DataFrame()
+    save_meta(filename_meta,filename_csv,args.seed,args,gp_params)
+
     for trial, seed in enumerate(seeds):
+
+        print(f'Trial {trial+1}/{len(seeds)}')
 
         conditions = get_conditions_set(args.conditions_set, params={'seed': seed, 'num_samples':args.num_samples})
 
@@ -204,4 +243,8 @@ gplearn config: {gp_params}
         end = time.time()
         print(f"Evolution finished in {end-start} seconds")
 
-        save_output(filename, trial+1, seed, eq, linear_operator.get_adjoint(), loss, target_loss, best_found_loss, end-start)
+        save_output(filename, trial+1, seed, eq, est._program, linear_operator.get_adjoint(), loss, target_loss, best_found_loss, target_weights, best_found_weights, end-start)
+        
+        df = df_append(df, trial+1, seed, eq, est._program, linear_operator.get_adjoint(), loss, target_loss, best_found_loss, target_weights, best_found_weights, end-start)
+
+        df.to_csv(filename_csv)
