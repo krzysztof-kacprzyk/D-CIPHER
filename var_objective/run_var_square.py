@@ -232,7 +232,7 @@ gplearn config: {gp_params}
 
     
         try:
-            eq, eqC = gp_to_pysym_with_coef(est)
+            eq, eqC = gp_to_pysym_with_coef(est,0.001,0.001)
         except:
             eq = est._program
 
