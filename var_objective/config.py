@@ -15,7 +15,7 @@ def get_gp_params():
         'population_size': 15000,
         'function_set':('add', 'sub', 'mul', 'div', 'sin', 'exp','log'),
         'generations':20,
-        'parsimony_coefficient': 1e-2,
+        'parsimony_coefficient': 5e-2,
         'tournament_size': 20,
         # 'p_crossover': 0.206322262,
         # 'p_subtree_mutation':0.053164874,
