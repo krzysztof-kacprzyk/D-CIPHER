@@ -42,9 +42,9 @@ def gp_to_pysym_with_coef(est_gp, tol=None, tol2=None, expand=False):
     f_star_list, var_list, coef_list = parse_program_to_list(f_star.program)
     f_star_infix = Generator.prefix_to_infix(f_star_list, variables=var_list, coefficients=coef_list)
     f_star_infix2 = f_star_infix.replace('{', '').replace('}', '')
-    if f_star_infix2 == f_star_infix:
-        f_star_sympy = Generator.infix_to_sympy(f_star_infix, VarDict, "simplify")
-        return (f_star_sympy, f_star_sympy)
+    # if f_star_infix2 == f_star_infix:
+    #     f_star_sympy = Generator.infix_to_sympy(f_star_infix, VarDict, "simplify")
+    #     return (f_star_sympy, f_star_sympy)
 
     f_star_sympy = Generator.infix_to_sympy(f_star_infix2, VarDict, "simplify")
 

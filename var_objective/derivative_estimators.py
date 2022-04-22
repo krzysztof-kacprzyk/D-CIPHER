@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from .differential_operator import Partial, _num_combi, LinearOperator
 from .libs import TVRegDiff, dxdt
 from .config import get_tvdiff_params, get_trenddiff_params, get_splinediff_params, get_finitediff_params
+import matplotlib.pyplot as plt
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel, ConstantKernel
@@ -139,4 +140,12 @@ class GPDiff(DerivativeEngine):
         backward_values = self.gpr.predict(backward_cov) * std + mean
 
         derivative = (forward_values - backward_values) / (2*delta_t)
+
+        # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+        # # Plot the surface.
+        # surf = ax.plot_surface(grid.by_axis()[0], grid.by_axis()[1], scalar_field, linewidth=0, antialiased=False)
+        # plt.show()
+
+        # surf = ax.plot_surface(grid.by_axis()[0], grid.by_axis()[1], derivative.reshape(grid.shape), linewidth=0, antialiased=False)
+        # plt.show()
         return derivative.reshape(grid.shape)
