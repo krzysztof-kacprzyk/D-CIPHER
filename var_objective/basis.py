@@ -104,6 +104,68 @@ class BSplineFreq2D(BasisFunction):
         
         return np.outer(b1(x1), b2(x2)) / norm
 
+class BSplineTrans1D(BasisFunction):
+
+    def __init__(self, widths, order, max_indexes):
+
+        assert len(widths) == 1
+
+        self.a = widths[0]
+
+        self.order = order
+
+        self.norm_dict = {0:1/3, 1:11/60, 2:151/1260, 3:15619/181440, 4:655177/9979200}
+
+        if order > 4:
+            raise ValueError("Order can be at most 4 unless you provide normalization constants")
+
+        self.max_indexes = max_indexes
+
+    @property
+    def dimension(self):
+        return 1
+    
+    @property
+    def max_order(self):
+        return self.order
+    
+    @property
+    def num_indexes(self):
+        return 1
+    
+    def get_tensor(self, indexes, grid, partial=None):
+
+        x = grid.by_axis()
+        self._verify(indexes, x.shape[0], partial)
+
+        m = indexes[0]
+
+        m_max = self.max_indexes[0]
+
+        width1 = (self.a / m_max)
+        start1 = width1 * (m-1)
+        end1 = width1 * m
+        
+        # We need order+1 because we want order-th derivative to be continuous
+        b1 = BSpline.basis_element(np.linspace(start1, end1, self.order+1+2),extrapolate=False)
+        
+        axes = grid.axes
+        x1 = axes[0]
+
+        if partial != None:
+
+            o1 = partial.order_list[0]
+            for i in range(o1):
+                b1 = b1.derivative()
+
+        b1_applied = b1(x1)
+        b1_applied[np.isnan(b1_applied)] = 0.0
+
+        norm = np.sqrt(self.norm_dict[self.order] * width1)
+       
+        
+        return b1_applied / norm
+
 class BSplineTrans2D(BasisFunction):
 
     def __init__(self, widths, order, max_indexes):
