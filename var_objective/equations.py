@@ -1,6 +1,7 @@
 from multiprocessing import Value
 
 from var_objective.flow import get_flow_potential_2D
+from var_objective.wave_equation import DampedWaveEquationDirichlet1D, WaveEquationDirichlet1D
 
 from .coulomb import get_potential_2D, get_potential_3D
 from .differential_operator import LinearOperator, Partial
@@ -39,6 +40,10 @@ def get_pdes(name, parameters=None):
         return HeatEquation3_L1(0.2,1.8)
     elif name == "HeatEquation4_L1":
         return HeatEquation4_L1(0.2,1.8)
+    elif name == "WaveEquation1_L1":
+        return WaveEquation1_L1(2)
+    elif name == "WaveEquation2_L1":
+        return WaveEquation2_L1(3,0.5)
     else:
         raise ValueError(f"Unknown equation: {name}")
 
@@ -551,6 +556,117 @@ class HeatEquation4_L1(PDE):
 
         return [func]
 
+class WaveEquation1_L1(PDE):
+
+    def __init__(self, k):
+        super().__init__({'k': k})
+
+    @property
+    def name(self):
+        return "WaveEquation1_L1"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 1
+
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        g = Function('g')
+        L = LinearOperator([1.0,-self.params['k']**2],[Partial([2,0]),Partial([0,2])])
+        g = 0*x0+0*x1
+        return [(L,g)]
+    
+    def get_solution(self, boundary_functions):
+
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+
+        wave_source = lambda X: np.zeros_like(X[0])
+        initial_wave = boundary_functions[0]
+
+        def func(grid):
+            assert grid.num_dims == 2
+            axes = grid.axes
+            widths = grid.widths
+            delta_t = 0.001
+            delta_x = 0.001
+            wave_equation = WaveEquationDirichlet1D(self.params['k'],wave_source,initial_wave)
+            U = wave_equation.idm(widths[0], widths[1], delta_t, delta_x)
+            sol = np.zeros(grid.shape)
+            grid_trans = grid.as_grid()
+            for t, g_t in enumerate(grid_trans):
+                for x, g_t_x in enumerate(g_t):
+                    ind_t = int(g_t_x[0] / delta_t)
+                    ind_x = int(g_t_x[1] / delta_x)
+                    sol[t,x] = U[ind_t, ind_x]
+
+            return sol
+
+        return [func]
+
+class WaveEquation2_L1(PDE):
+
+    def __init__(self, k, d):
+        super().__init__({'k': k, 'd':d})
+
+    @property
+    def name(self):
+        return "WaveEquation2_L1"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 1
+
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        g = Function('g')
+        L = LinearOperator([0.5,-self.params['k']**2,self.params['d']],[Partial([2,0]),Partial([0,2]),Partial([1,0])])
+        g = 0*x0+0*x1
+        return [(L,g)]
+    
+    def get_solution(self, boundary_functions):
+
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+
+        wave_source = lambda X: np.zeros_like(X[0])
+        initial_wave = boundary_functions[0]
+
+        def func(grid):
+            assert grid.num_dims == 2
+            axes = grid.axes
+            widths = grid.widths
+            delta_t = 0.001
+            delta_x = 0.001
+            wave_equation = DampedWaveEquationDirichlet1D(self.params['k'],self.params['d']/2,wave_source,initial_wave)
+            U = wave_equation.idm(widths[0], widths[1], delta_t, delta_x)
+            sol = np.zeros(grid.shape)
+            grid_trans = grid.as_grid()
+            for t, g_t in enumerate(grid_trans):
+                for x, g_t_x in enumerate(g_t):
+                    ind_t = int(g_t_x[0] / delta_t)
+                    ind_x = int(g_t_x[1] / delta_x)
+                    sol[t,x] = U[ind_t, ind_x]
+
+            return sol
+
+        return [func]
 
 
 class Coulomb2D(PDE):
