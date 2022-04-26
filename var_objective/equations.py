@@ -44,6 +44,12 @@ def get_pdes(name, parameters=None):
         return WaveEquation1_L1(2)
     elif name == "WaveEquation2_L1":
         return WaveEquation2_L1(3,0.5)
+    elif name == "HarmonicOscillator":
+        return HarmonicOscillator(3.0)
+    elif name == "DampedHarmonicOscillator":
+        return DampedHarmonicOscillator(4.0,0.5)
+    elif name == "DrivenHarmonicOscillator":
+        return DrivenHarmonicOscillator(4.0,0.5,3.0,5.0)
     else:
         raise ValueError(f"Unknown equation: {name}")
 
@@ -823,6 +829,141 @@ class Laplace2D(PDE):
     def get_solution(self, boundary_functions):
         return super().generate_solution(boundary_functions)
 
+class HarmonicOscillator(PDE):
+    
+    def __init__(self, k):
+        super().__init__(params={'k':k})
+    
+    @property
+    def name(self):
+        return "HarmonicOsciallator"
+
+    @property
+    def M(self):
+        return 1
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 2
+    
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g = Function('g')
+        L = LinearOperator([1.0],[Partial([2])])
+        g = -(self.params['k']**2)*u0 + 0.0*x0
+        return [(L,g)]
+
+    def get_solution(self, boundary_functions):
+        
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        x0 = boundary_functions[0]
+        dxdt0 = boundary_functions[1]
+        def func(grid):
+            x = grid.by_axis()[0]
+
+            return x0*np.cos(self.params['k']*x) + (dxdt0 / self.params['k']) * np.sin(self.params['k']*x)
+
+        return [func]
+
+class DampedHarmonicOscillator(PDE):
+    
+    def __init__(self, k, d):
+        super().__init__(params={'k':k,'d':d})
+    
+    @property
+    def name(self):
+        return "DampedHarmonicOsciallator"
+
+    @property
+    def M(self):
+        return 1
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 2
+    
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g = Function('g')
+        L = LinearOperator([2*self.params['k']*self.params['d'],1.0],[Partial([1]),Partial([2])])
+        g = -(self.params['k']**2)*u0 + 0.0*x0
+        return [(L,g)]
+
+    def get_solution(self, boundary_functions):
+        
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        x0 = boundary_functions[0]
+        dxdt0 = boundary_functions[1]
+        A = x0
+        B = ((dxdt0 / self.params['k']) + A*self.params['d']) / np.sqrt(1-self.params['d']**2)
+        def func(grid):
+            x = grid.by_axis()[0]
+            return np.exp(-self.params['d']*self.params['k']*x)*(A*np.cos(self.params['k']*np.sqrt(1-self.params['d']**2)*x) + B*np.sin(self.params['k']*np.sqrt(1-self.params['d']**2)*x))
+
+        return [func]
+
+class DrivenHarmonicOscillator(PDE):
+    
+    def __init__(self, k, d, k_r, F):
+        super().__init__(params={'k':k,'d':d, 'k_r':k_r, 'F':F})
+    
+    @property
+    def name(self):
+        return "DrivenHarmonicOsciallator"
+
+    @property
+    def M(self):
+        return 1
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 2
+    
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g = Function('g')
+        L = LinearOperator([2*self.params['k']*self.params['d'],1.0],[Partial([1]),Partial([2])])
+        g = -(self.params['k']**2)*u0 + self.params['F']*sin(self.params['k_r']*x0)
+        return [(L,g)]
+
+    def get_solution(self, boundary_functions):
+        
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        x0 = boundary_functions[0]
+        dxdt0 = boundary_functions[1]
+
+        denom = (2*self.params['d']*self.params['k']*self.params['k_r']) ** 2 + (self.params['k'] ** 2 - self.params['k_r'] ** 2) ** 2
+        partA =  - self.params['F'] * (2*self.params['d']*self.params['k']*self.params['k_r']) / denom
+        partB = self.params['F'] * (self.params['k'] ** 2 - self.params['k_r'] ** 2) / denom
+        A = x0 - partA
+        B = (dxdt0 - partB*self.params['k_r'] + A*self.params['d']*self.params['k']) / (self.params['k'] * np.sqrt(1-self.params['d']**2))
+        def func(grid):
+            x = grid.by_axis()[0]
+            return np.exp(-self.params['d']*self.params['k']*x) \
+                *(A*np.cos(self.params['k']*np.sqrt(1-self.params['d']**2)*x) \
+                + B*np.sin(self.params['k']*np.sqrt(1-self.params['d']**2)*x)) \
+                + partA * np.cos(self.params['k_r']*x) \
+                + partB * np.sin(self.params['k_r']*x)
+
+        return [func]
         
     
 if __name__ == '__main__':
@@ -835,4 +976,5 @@ if __name__ == '__main__':
 
     plt.plot(t,g_part(t,t,t))
     plt.show()
+
 

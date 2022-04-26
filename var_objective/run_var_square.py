@@ -12,7 +12,7 @@ from .equations import get_pdes
 from .grids import EquiPartGrid
 from .generator import generate_fields
 from .interpolate import estimate_fields
-from .basis import BSplineFreq2D, FourierSine2D, BSplineTrans2D
+from .basis import BSplineFreq2D, BSplineTrans1D, FourierSine2D, BSplineTrans2D
 from .optimize_operator import VariationalWeightsFinder
 from .conditions import get_conditions_set
 from .config import get_optim_params, get_gp_params
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     parser.add_argument('noise_ratio', type=float, help='Noise ration for data generation')
     parser.add_argument('full_grid_samples', type=int, help='Frequency of the full grid')
     parser.add_argument('conditions_set', help='Conditions set name from conditions.py')
-    parser.add_argument('basis', choices=['fourier','2spline2D', '2spline2Dtrans'])
+    parser.add_argument('basis', choices=['fourier','2spline2D', '2spline2Dtrans', '2spline1Dtrans'])
     parser.add_argument('max_ind_basis', type=int, help='Maximum index for test functions. Number of used test functions is a square of this number')
     parser.add_argument('num_trials', type=int, help='Number of trials')
     parser.add_argument('normalization',choices=['l1','l2'])
@@ -105,7 +105,9 @@ if __name__ == '__main__':
 
     pdes = get_pdes(args.name)
 
-    widths = [args.width] * 2
+    M = pdes.M
+
+    widths = [args.width] * M
 
     observed_grid = EquiPartGrid(widths, args.frequency_per_dim)
     full_grid = EquiPartGrid(widths, args.full_grid_samples)
@@ -166,6 +168,9 @@ gplearn config: {gp_params}
         elif args.basis == '2spline2Dtrans':
             index_limits = [args.max_ind_basis] * 2
             basis = BSplineTrans2D(widths, 2, index_limits)
+        elif args.basis == '2spline1Dtrans':
+            index_limits = [args.max_ind_basis]
+            basis = BSplineTrans1D(widths, 2, index_limits)
 
         print("Initializing Variational Weights Finder")
         start = time.time()
