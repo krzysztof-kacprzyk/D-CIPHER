@@ -77,7 +77,23 @@ class RandomSources3D:
     def get_condition_functions(self, index):
         return generate_random_sources_3D(self.num_sources_per_sample,seed=self.seeds[index]) 
 
+class RandomNumbers:
 
+    def __init__(self,num_conditions_per_sample,min_value,max_value,num_samples, seed=0):
+
+        self.num_conditions_per_sample = num_conditions_per_sample
+        self.num_samples = num_samples
+        self.min_value = min_value
+        self.max_value = max_value
+
+        np.random.seed(seed)
+        self.seeds = np.random.randint(0,1000000,size=self.num_samples)
+
+    def get_num_samples(self):
+        return self.num_samples
+    
+    def get_condition_functions(self, index):
+        return generate_random_number(self.num_conditions_per_sample,self.min_value,self.max_value,seed=self.seeds[index])
 
 
 def get_conditions_set(name, params={'seed':0, 'num_samples':1}):
@@ -125,7 +141,15 @@ def get_conditions_set(name, params={'seed':0, 'num_samples':1}):
         conditions = RandomSources2D(2,params['num_samples'],seed=params['seed'])
     elif name == 'SourcesRandom3D':
         conditions = RandomSources3D(2,params['num_samples'],seed=params['seed'])
+    elif name == 'NumbersRandom1':
+        conditions = RandomNumbers(1,1.0,2.0,params['num_samples'],seed=params['seed'])
+    elif name == 'NumbersRandom2':
+        conditions = RandomNumbers(2,-2.0,2.0,params['num_samples'],seed=params['seed'])
     return conditions
+
+def generate_random_number(num_numbers,min_number,max_number,seed=0):
+    np.random.seed(seed)
+    return np.random.rand(num_numbers,) * (max_number - min_number) + min_number
 
 def generate_random_sources_2D(num_sources,seed=0):
     np.random.seed(seed)
