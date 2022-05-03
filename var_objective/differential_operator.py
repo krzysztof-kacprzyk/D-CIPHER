@@ -161,6 +161,19 @@ class LinearOperator():
             new_coeffs.append(coeff / length)
         return LinearOperator(new_coeffs, self.partials)
 
+    def get_sign(self):
+        vector = self.vectorize()
+        for v in vector:
+            if v != 0.0:
+                return np.sign(v)
+        return 0.0
+
+    def reverse_sign(self):
+        new_coeffs = []
+        for coeff in self.coeffs:
+            new_coeffs.append(-coeff)
+        return LinearOperator(new_coeffs, self.partials)
+
 
 # p = Partial([3,0,0,0])
 # for i in range(20):
