@@ -6,7 +6,7 @@ import pandas as pd
 import pickle
 
 from var_objective.differential_operator import LinearOperator
-from var_objective.utils.gp_utils import gp_to_pysym_with_coef
+from var_objective.utils.gp_utils import gp_to_pysym_no_coef, gp_to_pysym_with_coef
 
 from .equations import get_pdes
 from .grids import EquiPartGrid
@@ -18,8 +18,7 @@ from .conditions import get_conditions_set
 from .config import get_optim_params, get_gp_params
 from .libs import SymbolicRegressor, make_fitness
 
-
-
+import sympy
 
 def grid_and_fields_to_covariates(grid_and_fields):
 
@@ -34,13 +33,15 @@ def _check_if_zero(vector):
     else:
         return False
 
-def save_output(filename, trial, seed, program, raw_program, operator, loss, target_loss, target_loss_better_weights, target_weights, best_found_weights, time_elapsed):
+def save_output(filename, trial, seed, program, eqC, is_correct, raw_program, operator, loss, target_loss, target_loss_better_weights, target_weights, best_found_weights, time_elapsed):
     message = f"""
 ----------------------
 Trial: {trial}
 Seed: {seed}
 Program: {program}
 Operator: {operator}
+Functional form: {eqC}
+Is correct: {is_correct}
 Loss: {loss}
 Target_loss: {target_loss}
 Target_weights: {target_weights}
@@ -51,11 +52,13 @@ Time elapsed: {time_elapsed}"""
     with open(filename, 'a') as f:
         f.write(message)
 
-def df_append(old_df, trial, seed, program, raw_program, operator, loss, target_loss, target_loss_better_weights, target_weights, best_found_weights, time_elapsed):
+def df_append(old_df, trial, seed, program, eqC, is_correct, raw_program, operator, loss, target_loss, target_loss_better_weights, target_weights, best_found_weights, time_elapsed):
     df = pd.DataFrame()
     df['trial'] = [trial]
     df['seed'] = [seed]
     df['program'] = [program]
+    df['eqC'] = [eqC]
+    df['is_correct'] = [f'{is_correct}']
     weights = operator.vectorize()[1:] #exclude 0 partial
     for i,x in enumerate(weights):
         df[f'operator_{i}'] = x
@@ -97,7 +100,6 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num_samples', type=int, default=1)
 
-
     args = parser.parse_args()
 
     INF_FLOAT = 9.0e+300
@@ -111,8 +113,6 @@ if __name__ == '__main__':
 
     observed_grid = EquiPartGrid(widths, args.frequency_per_dim)
     full_grid = EquiPartGrid(widths, args.full_grid_samples)
-
-    
 
     dt = datetime.now().strftime("%Y-%m-%dT%H.%M.%S")
     filename = f"results/run_var_square_{dt}.txt"
@@ -198,7 +198,6 @@ gplearn config: {gp_params}
         fake_y = np.zeros(X.shape[0])
 
         var_fitness = make_fitness(_var_fitness, greater_is_better=False)
-
        
 
         L_target, g_target = pdes.get_expression_normalized(norm=args.normalization)[args.field_index]
@@ -233,23 +232,40 @@ gplearn config: {gp_params}
         est.fit(X, fake_y)
 
         loss, weights = var_wf.find_weights(est.predict(X))
-        linear_operator = LinearOperator.from_vector(weights, dimension, order, zero_partial=False)
-
-    
+        linear_operator = LinearOperator.from_vector(weights, dimension, order, zero_partial=False).get_adjoint()
+        reverse = False
+        if linear_operator.get_sign() < 0:
+            reverse = True
+            linear_operator = linear_operator.reverse_sign()
+        is_correct = "NA"
         try:
-            eq, eqC = gp_to_pysym_with_coef(est,0.001,0.001)
+            eq, eqC = gp_to_pysym_with_coef(est)
+            if reverse:
+                eq = (-1) * eq
+                eqC = (-1) * eqC
+            true_g = pdes.get_functional_form_normalized(norm=args.normalization)[args.field_index]
+            expr = sympy.parsing.sympy_parser.parse_expr(f"{true_g} - ({eqC})")
+            is_correct = sympy.simplify(expr) == 0.0
+            print(sympy.simplify(expr))
         except:
             eq = est._program
+            if reverse:
+                eq = f"-({eq})"
+            eqC = "Failed"
 
-        print(f"Found {linear_operator.get_adjoint()} - ({eq}) = 0")
+        print(f"Found: {linear_operator} - ({eq}) = 0")
 
         print(f"Expected: {L_target} - ({g_target}) = 0")
+
+        print(f"Functional form: {eqC}")
+
+        print(f"Is correct? {is_correct}")
 
         end = time.time()
         print(f"Evolution finished in {end-start} seconds")
 
-        save_output(filename, trial+1, seed, eq, est._program, linear_operator.get_adjoint(), loss, target_loss, best_found_loss, target_weights, best_found_weights, end-start)
+        save_output(filename, trial+1, seed, eq, eqC, is_correct, est._program, linear_operator, loss, target_loss, best_found_loss, target_weights, best_found_weights, end-start)
         
-        df = df_append(df, trial+1, seed, eq, est._program, linear_operator.get_adjoint(), loss, target_loss, best_found_loss, target_weights, best_found_weights, end-start)
+        df = df_append(df, trial+1, seed, eq, eqC, is_correct, est._program, linear_operator, loss, target_loss, best_found_loss, target_weights, best_found_weights, end-start)
 
         df.to_csv(filename_csv)
