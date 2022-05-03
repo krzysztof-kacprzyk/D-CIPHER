@@ -88,6 +88,10 @@ class PDE(ABC):
     def get_solution(self, boundary_functions):
         pass
 
+    @abstractmethod
+    def get_functional_form_normalized(self,norm='l2'):
+        pass
+
     def __str__(self):
         return "\n".join([f"({L})u - {g} = 0" for L,g in self.get_expression()])
 
@@ -964,6 +968,27 @@ class DrivenHarmonicOscillator(PDE):
                 + partB * np.sin(self.params['k_r']*x)
 
         return [func]
+
+    def get_functional_form_normalized(self,norm='l2'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        L = LinearOperator([2*self.params['k']*self.params['d'],1.0],[Partial([1]),Partial([2])])
+        length = L.get_length(norm=norm)
+        if self.params['k']**2 / length == 1.0:
+            param1 = 1.0
+        else:
+            param1 = C
+        
+        if self.params['F'] / length == 1.0:
+            param2 = 1.0
+        else:
+            param2 = C
+        g = -param1*X1 + param2*sin(C*X0)
+        return [g]
+
+
         
     
 if __name__ == '__main__':
