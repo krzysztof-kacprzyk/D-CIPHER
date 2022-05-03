@@ -397,11 +397,12 @@ class Generator(object):
             return f"({args[0]})**4"
         elif token == "pow5":
             return f"({args[0]})**5"
+        elif token == "ln":
+            return f"ln(Abs({args[0]}))"
         elif token in [
             "sign",
             "sqrt",
             "exp",
-            "ln",
             "sin",
             "cos",
             "tan",
