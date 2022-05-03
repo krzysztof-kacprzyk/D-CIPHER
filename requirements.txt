@@ -7,4 +7,3 @@ scikit-learn
 Cython
 cvxpy
 cvxopt
-pytorch
