@@ -50,6 +50,8 @@ def get_pdes(name, parameters=None):
         return DampedHarmonicOscillator(4.0,0.5)
     elif name == "DrivenHarmonicOscillator":
         return DrivenHarmonicOscillator(4.0,0.5,3.0,5.0)
+    elif name == "HeatEquation5_L1":
+        return HeatEquation3_L1(0.25,1.8)
     else:
         raise ValueError(f"Unknown equation: {name}")
 
@@ -507,6 +509,15 @@ class HeatEquation3_L1(PDE):
             return sol
 
         return [func]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = exp(C*X0)
+
+        return [g]
     
 class HeatEquation4_L1(PDE):
 
