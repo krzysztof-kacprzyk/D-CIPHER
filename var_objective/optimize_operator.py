@@ -87,6 +87,8 @@ class VariationalWeightsFinder:
         elif optim_engine == 'lars-imp':
             self.weight_finder = UnitLstsqLARSImproved(self.X)
 
+        self.bs = []
+
     def _calculate_loss(self, g_part, weights):
 
         if g_part is None:
@@ -115,6 +117,8 @@ class VariationalWeightsFinder:
     
         return loss
 
+    # def arreq_in_list(myarr, list_arrays):
+    #     return next((True for elem in list_arrays if np.array_equal(elem, myarr)), False)
 
 
     def find_weights(self, g_part=None):
@@ -150,6 +154,15 @@ class VariationalWeightsFinder:
             #     pickle.dump(problem,file)
             
             loss, weights = self.weight_finder.solve(y,take_mean=True)
+
+            # if len(self.bs) < 1000:
+            #     if not VariationalWeightsFinder.arreq_in_list(y,self.bs):
+            #         self.bs.append(y)
+            # elif len(self.bs) == 1000:
+            #     print("Done")
+            #     dic = {'A':self.X, 'bs':self.bs}
+            #     with open('results/test_objects.p', 'wb') as f:
+            #         pickle.dump(dic,f)
 
             return (loss,weights)
 

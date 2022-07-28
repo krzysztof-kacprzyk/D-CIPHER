@@ -771,7 +771,7 @@ class UnitL1NormLeastSquare_CVX:
         index_best = np.argmin(obj_candidate)
         x_best = x_candidate[:, index_best]
 
-        print(f"signs of the optimal solution: {np.transpose(np.sign(x_best))}")
+        #print(f"signs of the optimal solution: {np.transpose(np.sign(x_best))}")
 
         # print result.
         # print("The best objective value recovered is", obj_recovered[index_best])
