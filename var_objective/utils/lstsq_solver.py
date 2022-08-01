@@ -761,7 +761,7 @@ class UnitL1NormLeastSquare_CVX:
                               constraints)
             prob.solve()
 
-            if prob.status != 'optimal':
+            if 'optimal' not in prob.status:
                 print("CVX failed")
                 return (None, None)
 

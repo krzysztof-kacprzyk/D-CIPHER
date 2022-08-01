@@ -34,7 +34,7 @@ def _check_if_zero(vector):
     else:
         return False
 
-def save_output(filename, trial, seed, program, eqC, is_correct, raw_program, operator, loss, target_loss, target_loss_better_weights, target_weights, best_found_weights, time_elapsed):
+def save_output(filename, trial, seed, program, eqC, is_correct, raw_program, operator, loss, target_loss, target_loss_better_weights, target_weights, best_found_weights, time_elapsed, time_preprocessing):
     message = f"""
 ----------------------
 Trial: {trial}
@@ -49,11 +49,12 @@ Target_weights: {target_weights}
 Target_loss_better_weights: {target_loss_better_weights}
 Best_found_weights: {best_found_weights}
 Raw_program: {raw_program}
-Time elapsed: {time_elapsed}"""
+Time elapsed: {time_elapsed}
+Time preprocessing: {time_preprocessing}"""
     with open(filename, 'a') as f:
         f.write(message)
 
-def df_append(old_df, trial, seed, program, eqC, is_correct, raw_program, operator, loss, target_loss, target_loss_better_weights, target_weights, best_found_weights, time_elapsed):
+def df_append(old_df, trial, seed, program, eqC, is_correct, raw_program, operator, loss, target_loss, target_loss_better_weights, target_weights, best_found_weights, time_elapsed, time_preprocessing):
     df = pd.DataFrame()
     df['trial'] = [trial]
     df['seed'] = [seed]
@@ -67,6 +68,7 @@ def df_append(old_df, trial, seed, program, eqC, is_correct, raw_program, operat
     df['target_loss'] = [target_loss]
     df['target_loss_better_weights'] = [target_loss_better_weights]
     df['time_elapsed'] = [time_elapsed]
+    df['time_preprocessing'] = [time_preprocessing]
     df['raw_program'] = [raw_program]
     for i,x in enumerate(target_weights):
         df[f'target_weights_{i}'] = [x]
@@ -92,12 +94,13 @@ if __name__ == '__main__':
     parser.add_argument('frequency_per_dim', type=int, help='Frequency per dimension of generated data')
     parser.add_argument('noise_ratio', type=float, help='Noise ration for data generation')
     parser.add_argument('conditions_set', help='Conditions set name from conditions.py')
-    parser.add_argument('diff_engine', choices=['numpy', 'tv', 'trend', 'spline', 'finite','gp'])
+    parser.add_argument('diff_engine', choices=['numpy', 'tv', 'trend', 'spline', 'finite','gp','gp2'])
     parser.add_argument('num_trials', type=int, help='Number of trials')
     parser.add_argument('normalization',choices=['l1','l2'])
     parser.add_argument('solver', help='Least squares solver')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num_samples', type=int, default=1)
+    parser.add_argument('--warm_start', type=int, default=1)
 
     args = parser.parse_args()
 
@@ -136,8 +139,14 @@ gplearn config: {gp_params}
     save_meta(filename_meta,filename_csv,args.seed,args,gp_params)
 
     for trial, seed in enumerate(seeds):
-        
+
+        start_preprocessing = time.time()        
+
         print(f'Trial {trial+1}/{len(seeds)}')
+
+        if trial+1 < args.warm_start:
+            print("skipping")
+            continue
 
         conditions = get_conditions_set(args.conditions_set, params={'seed': seed, 'num_samples':args.num_samples})
 
@@ -207,6 +216,7 @@ gplearn config: {gp_params}
         print(f"Loss for the best found weights: {best_found_loss}")
         print(f"Best found weights: {best_found_weights}")
 
+        end_preprocessing = time.time()
         print(f"Starting evolution with population {gp_params['population_size']} and {gp_params['generations']} generations")
         start = time.time()
         est = SymbolicRegressor(metric=var_fitness, **gp_params ,verbose=1, random_state=seed)
@@ -249,8 +259,8 @@ gplearn config: {gp_params}
         end = time.time()
         print(f"Evolution finished in {end-start} seconds")
 
-        save_output(filename, trial+1, seed, eq, eqC, is_correct, est._program, linear_operator, loss, target_loss, best_found_loss, target_weights, best_found_weights, end-start)
+        save_output(filename, trial+1, seed, eq, eqC, is_correct, est._program, linear_operator, loss, target_loss, best_found_loss, target_weights, best_found_weights, end-start, end_preprocessing-start_preprocessing)
         
-        df = df_append(df, trial+1, seed, eq, eqC, is_correct, est._program, linear_operator, loss, target_loss, best_found_loss, target_weights, best_found_weights, end-start)
+        df = df_append(df, trial+1, seed, eq, eqC, is_correct, est._program, linear_operator, loss, target_loss, best_found_loss, target_weights, best_found_weights, end-start, end_preprocessing-start_preprocessing)
 
         df.to_csv(filename_csv)
