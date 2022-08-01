@@ -22,6 +22,8 @@ def get_diff_engine(name,seed=0):
         return FiniteDiff(get_finitediff_params())
     elif name == 'gp':
         return GPDiff({'seed':seed, 'delta':1e-3})
+    elif name == 'gp2':
+        return GP2Diff({'seed':seed, 'delta':1e-3})
 
 class DerivativeEngine(ABC):
 
@@ -34,6 +36,9 @@ class DerivativeEngine(ABC):
 
  
 def all_derivatives(scalar_field, grid, dimension, order, engine):
+
+    if isinstance(engine, GP2Diff):
+        return engine.finite_diff(scalar_field, grid, dimension, order, engine)
 
 
     if list(scalar_field.shape) != list(grid.shape):
@@ -121,6 +126,7 @@ class GPDiff(DerivativeEngine):
         super().__init__(params)
         # Configure Gaussian Process
         kernel = ConstantKernel()*RBF() + WhiteKernel()
+        # kernel = RBF() + WhiteKernel()
         self.gpr = GaussianProcessRegressor(kernel=kernel, random_state=self.params['seed'])
 
     def differentiate(self, scalar_field, grid, variable):
@@ -140,6 +146,100 @@ class GPDiff(DerivativeEngine):
         backward_values = self.gpr.predict(backward_cov) * std + mean
 
         derivative = (forward_values - backward_values) / (2*delta_t)
+
+        # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+        # # Plot the surface.
+        # surf = ax.plot_surface(grid.by_axis()[0], grid.by_axis()[1], scalar_field, linewidth=0, antialiased=False)
+        # plt.show()
+
+        # surf = ax.plot_surface(grid.by_axis()[0], grid.by_axis()[1], derivative.reshape(grid.shape), linewidth=0, antialiased=False)
+        # plt.show()
+        return derivative.reshape(grid.shape)
+
+
+class Stencil:
+
+    def __init__(self,directions, coefficients, denominator):
+        self.directions = directions
+        self.coefficients = coefficients
+        self.denominator = denominator
+
+class GP2Diff(DerivativeEngine):
+
+    def __init__(self, params={'seed':0}):
+        super().__init__(params)
+        # Configure Gaussian Process
+        kernel = ConstantKernel()*RBF() + WhiteKernel()
+        self.gpr = GaussianProcessRegressor(kernel=kernel, random_state=self.params['seed'])
+
+    def finite_diff(self,scalar_field, grid, dimension, order, engine):
+
+        if (order > 2) or (dimension > 2):
+            raise ValueError(f"Not currently implemented for order {order} and dimension {dimension}")
+
+
+        if list(scalar_field.shape) != list(grid.shape):
+            raise ValueError("Scalar field and grid have different shapes")
+
+        if dimension != grid.num_dims:
+            raise ValueError("Grid has incorrect dimension")
+
+        derivative_fields = np.zeros((LinearOperator.get_vector_length(dimension,order),*grid.shape))
+
+        derivative_fields[0] = scalar_field
+
+        u_obs = scalar_field.flatten()
+        mean = np.mean(u_obs)
+        std = np.std(u_obs)
+        org_cov = grid.as_covariates()
+        self.gpr.fit(org_cov, (u_obs - mean)/std)
+        stencils = {
+            (1):Stencil([[1],[-1]],[1,-1],lambda t: 2*t),
+            (2):Stencil([[1],[0],[-1]],[1,-2,1],lambda t: t**2),
+            (1,0):Stencil([[1,0],[-1,0]],[1,-1], lambda t: 2*t),
+            (0,1):Stencil([[0,1],[0,-1]],[1,-1], lambda t: 2*t),
+            (1,1):Stencil([[1,1],[1,-1],[-1,1],[-1,-1]],[1,-1,-1,1], lambda t: 4*t**2),
+            (2,0):Stencil([[1,0],[0,0],[-1,0]],[1,-2,1], lambda t: t**2),
+            (0,2):Stencil([[0,1],[0,0],[0,-1]],[1,-2,1], lambda t: t**2)
+        }
+
+        counter = 1
+        for n in range(1,order+1):
+            partial = Partial([n]+([0]*(dimension-1)))
+
+            for i in range(_num_combi(n,dimension)):
+
+                stencil = stencils[tuple(partial.order_list)]
+                der_field = self.differentiate(org_cov,grid,stencil, std, mean)
+                derivative_fields[counter] = der_field
+                
+                partial = partial.next_partial()
+                counter += 1
+
+        return derivative_fields
+
+
+    def differentiate(self, org_cov, grid, stencil, std, mean):
+        
+
+        delta_t = self.params['delta']
+        directions = stencil.directions
+        coefficients = stencil.coefficients
+        denom = stencil.denominator(delta_t)
+
+        terms = []
+        for i in range(len(directions)):
+            diff_vector = np.array(directions[i]) * delta_t
+            term_argument = org_cov + diff_vector
+            term_values = self.gpr.predict(term_argument) * std + mean
+            terms.append(term_values)
+
+        derivative = np.zeros(org_cov.shape[0])
+        for coeff, term in zip(coefficients,terms):
+            derivative += coeff * term
+    
+        derivative /= denom
+        
 
         # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
         # # Plot the surface.

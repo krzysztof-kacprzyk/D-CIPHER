@@ -41,9 +41,11 @@ def get_pdes(name, parameters=None):
     elif name == "HeatEquation4_L1":
         return HeatEquation4_L1(0.2,1.8)
     elif name == "WaveEquation1_L1":
-        return WaveEquation1_L1(2)
+        return WaveEquation1_L1(1.0)
     elif name == "WaveEquation2_L1":
-        return WaveEquation2_L1(3,0.5)
+        return WaveEquation2_L1(1.0,2.0)
+    elif name == "WaveEquation3_L1":
+        return WaveEquation3_L1(1.0)
     elif name == "HarmonicOscillator":
         return HarmonicOscillator(3.0)
     elif name == "DampedHarmonicOscillator":
@@ -52,6 +54,10 @@ def get_pdes(name, parameters=None):
         return DrivenHarmonicOscillator(4.0,0.5,3.0,5.0)
     elif name == "HeatEquation5_L1":
         return HeatEquation3_L1(0.25,1.8)
+    elif name == "Liouville_L1":
+        return Liouville_L1(0.8)
+    elif name == "Liouville2_L1":
+        return Liouville2_L1(1.6)
     else:
         raise ValueError(f"Unknown equation: {name}")
 
@@ -577,6 +583,114 @@ class HeatEquation4_L1(PDE):
 
         return [func]
 
+class Liouville_L1(PDE):
+
+    def __init__(self, d):
+        super().__init__({'d': d})
+
+    @property
+    def name(self):
+        return "Liouville_L1"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 2
+
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g = Function('g')
+        L = LinearOperator([1.0,1.0],[Partial([2,0]),Partial([0,2])])
+        g = exp(self.params['d']*u0)
+        return [(L,g)]
+    
+    def get_solution(self, boundary_functions):
+
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        a = 1.2
+        b = boundary_functions[1]
+        # c = 0.55
+        c = 10.0
+        d = self.params['d']
+        def func(grid):
+            x = grid.by_axis()[0]
+            y = grid.by_axis()[1]
+            # return np.log((2*(a*np.sin(x)*np.sinh(y) + b*np.cos(x)*np.sinh(y))**2 \
+            # + 2*(a*np.cos(x)*np.cosh(y) - b*np.sin(x)*np.cosh(y))**2)/(d*(a*np.sin(x)*np.cosh(y) \
+            # + b*np.cos(x)*np.cosh(y) + c)**2))/d
+            return np.log((2*a**2*(-2*y - 2)**2 + 2*(a*(2*x + 2) + b)**2)/(d*(a*((x + 1)**2 - (y + 1)**2) + b*(x + 1) + c)**2))/d
+
+        return [func]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        X2 = Symbol('X2', real=True)
+        C = Symbol('C', real=True, positive=True)
+        
+        g = exp(C*X2)
+
+        return [g]
+
+class Liouville2_L1(PDE):
+
+    def __init__(self, d):
+        super().__init__({'d': d})
+
+    @property
+    def name(self):
+        return "Liouville2_L1"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 1
+
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g = Function('g')
+        L = LinearOperator([0.5,0.5],[Partial([2,0]),Partial([0,2])])
+        g = exp(self.params['d']*u0)
+        return [(L,g)]
+    
+    def get_solution(self, boundary_functions):
+
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        
+        def func(grid):
+            x = grid.by_axis()[0]
+            y = grid.by_axis()[1]
+            return boundary_functions[0](x, y)
+        return [func]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        X2 = Symbol('X2', real=True)
+        C = Symbol('C', real=True, positive=True)
+        
+        g = exp(C*X2)
+
+        return [g]    
+
 class WaveEquation1_L1(PDE):
 
     def __init__(self, k):
@@ -633,6 +747,15 @@ class WaveEquation1_L1(PDE):
 
         return [func]
 
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = 0*X0
+
+        return [g]
+
 class WaveEquation2_L1(PDE):
 
     def __init__(self, k, d):
@@ -657,7 +780,7 @@ class WaveEquation2_L1(PDE):
     def get_expression(self):
         x0,x1 = symbols('x0,x1', real=True)
         g = Function('g')
-        L = LinearOperator([0.5,-self.params['k']**2,self.params['d']],[Partial([2,0]),Partial([0,2]),Partial([1,0])])
+        L = LinearOperator([1.0,-self.params['k']**2,self.params['d']],[Partial([2,0]),Partial([0,2]),Partial([1,0])])
         g = 0*x0+0*x1
         return [(L,g)]
     
@@ -688,6 +811,81 @@ class WaveEquation2_L1(PDE):
             return sol
 
         return [func]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = 0*X0
+
+        return [g]
+
+
+class WaveEquation3_L1(PDE):
+
+    def __init__(self, k):
+        super().__init__({'k': k})
+
+    @property
+    def name(self):
+        return "WaveEquation3_L1"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 1
+
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        g = Function('g')
+        L = LinearOperator([1.0,-self.params['k']**2],[Partial([2,0]),Partial([0,2])])
+        g = 2*exp(x0)*sin(3*x0)
+        return [(L,g)]
+    
+    def get_solution(self, boundary_functions):
+
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+
+        wave_source = lambda X: 2*np.exp(X[0])*np.sin(3*X[0])
+        initial_wave = boundary_functions[0]
+
+        def func(grid):
+            assert grid.num_dims == 2
+            axes = grid.axes
+            widths = grid.widths
+            delta_t = 0.001
+            delta_x = 0.001
+            wave_equation = WaveEquationDirichlet1D(self.params['k'],wave_source,initial_wave)
+            U = wave_equation.idm(widths[0], widths[1], delta_t, delta_x)
+            sol = np.zeros(grid.shape)
+            grid_trans = grid.as_grid()
+            for t, g_t in enumerate(grid_trans):
+                for x, g_t_x in enumerate(g_t):
+                    ind_t = int(g_t_x[0] / delta_t)
+                    ind_x = int(g_t_x[1] / delta_x)
+                    sol[t,x] = U[ind_t, ind_x]
+
+            return sol
+
+        return [func]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = exp(X0)*sin(C*X0)
+
+        return [g]
 
 
 class Coulomb2D(PDE):

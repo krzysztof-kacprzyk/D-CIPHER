@@ -145,6 +145,22 @@ def get_conditions_set(name, params={'seed':0, 'num_samples':1}):
         conditions = RandomNumbers(1,1.0,2.0,params['num_samples'],seed=params['seed'])
     elif name == 'NumbersRandom2':
         conditions = RandomNumbers(2,-2.0,2.0,params['num_samples'],seed=params['seed'])
+    elif name == 'LiouvilleRandom':
+        conditions = RandomNumbers(2,-0.1,0.1,params['num_samples'],seed=params['seed'])
+    elif name == 'LiouvilleRandom2':
+        conditions = RandomNumbers(2,0.01,1.0,params['num_samples'],seed=params['seed'])
+    elif name == 'Liouville10':
+        conditions = Conditions(1)
+        conditions.add_sample([lambda x, y: 0.625*np.log(0.625*((2.4*x + 3.4)**2 + 1.44*(-2*y - 2)**2)/(1.0*x + 1.2*(x + 1)**2 - 1.2*(y + 1)**2 + 10.0)**2)])
+        conditions.add_sample([lambda x, y: 0.625*np.log(0.625*((1.2*x + 0.2)**2 + 0.36*(-2*y - 2)**2)/(-1.0*x + 0.6*(x + 1)**2 - 0.6*(y + 1)**2 + 5.0)**2)])
+        conditions.add_sample([lambda x, y: 0.625*np.log(0.625*(1.0*np.sin(1.0*x)**2*np.sinh(-1.0*y - 0.2)**2 + 1.0*np.cos(1.0*x)**2*np.cosh(-1.0*y - 0.2)**2)/(-1.0*np.sin(1.0*x)*np.cosh(-1.0*y - 0.2) + 4.75)**2)])
+        conditions.add_sample([lambda x, y: 0.625*np.log(0.625*(1.0*np.sin(1.0*x)**2*np.sinh(-1.0*y - 1.1)**2 + 1.0*np.cos(1.0*x)**2*np.cosh(-1.0*y - 1.1)**2)/(-1.0*np.cos(1.0*x)*np.sinh(-1.0*y - 1.1) + 4.75)**2)])
+        conditions.add_sample([lambda x, y: 0.625*np.log(0.625*(5.76*(-3.6*x - 3)**2*(1.2*y + 2)**2 + (3.6*(1.2*x + 1)**2 - 3.6*(1.2*y + 2)**2)**2)/((1.2*x + 1)**3 - 3*(1.2*x + 1)*(1.2*y + 2)**2)**2)])
+        conditions.add_sample([lambda x, y: 0.625*np.log(0.625*(7.84*(1.4*x + 1)**2*(-4.2*y - 6)**2 + (-4.2*(1.4*x + 1)**2 + 4.2*(-1.4*y - 2)**2)**2)/(-3*(1.4*x + 1)**2*(1.4*y + 2) - (-1.4*y - 2)**3 + 120.0)**2)])
+        conditions.add_sample([lambda x, y: 0.625*np.log(0.625*(0.64*np.sin(0.8*x)**2*np.sinh(-0.8*y - 0.16)**2 + 0.64*np.cos(0.8*x)**2*np.cosh(-0.8*y - 0.16)**2)/(-1.0*np.sin(0.8*x)*np.cosh(-0.8*y - 0.16) + 4.75)**2)])
+        conditions.add_sample([lambda x, y: 0.625*np.log(0.625*(0.64*np.sin(1.0*x)**2*np.sinh(-1.0*y - 0.2)**2 + 0.64*np.cos(1.0*x)**2*np.cosh(-1.0*y - 0.2)**2)/(-0.8*np.sin(1.0*x)*np.cosh(-1.0*y - 0.2) + 4.75)**2)])
+        conditions.add_sample([lambda x, y: 0.625*np.log(0.625*(1.6384*np.sin(0.8*x)**2*np.sinh(-0.8*y - 0.16)**2 + 1.6384*np.cos(0.8*x)**2*np.cosh(-0.8*y - 0.16)**2)/(-1.6*np.sin(0.8*x)*np.cosh(-0.8*y - 0.16) + 5.0)**2)])
+        conditions.add_sample([lambda x, y: 0.625*np.log(0.625*(1.96*np.sin(2.0*x)**2*np.sinh(2.0*y + 0.4)**2 + 1.96*np.cos(2.0*x)**2*np.cosh(2.0*y + 0.4)**2)/(0.7*np.sin(2.0*x)*np.cosh(2.0*y + 0.4) + 30)**2)])
     return conditions
 
 def generate_random_number(num_numbers,min_number,max_number,seed=0):
