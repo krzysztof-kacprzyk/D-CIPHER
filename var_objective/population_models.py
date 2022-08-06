@@ -1,4 +1,8 @@
 import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib import animation
+
+from .conditions import get_conditions_set
 
 class SLM:
     """
@@ -17,8 +21,8 @@ class SLM:
         beta = self.birth_rate(np.linspace(0, (L+N)*delta_t,L+N+1))
         mu = self.death_rate(np.linspace(delta_t/2, (L+N)*delta_t - delta_t/2, L+N))
 
-        for i in range(L+1):
-            U[0,i] = self.initial_age_distribution(i * delta_t)
+    
+        U[0,:L+1] = self.initial_age_distribution(np.arange(0,(L+1)*delta_t,delta_t))
 
         for n in range(1, N+1):
 
@@ -31,6 +35,15 @@ class SLM:
 
 if __name__ == "__main__":
 
+    print("d0")
+    conditions = get_conditions_set('PopulationRandom', params={'seed':2, 'num_samples':5})
+    print("d0a")
+    widths = [2.0,2.0]
+
+    for c in range(conditions.get_num_samples()):
+
+        condition = conditions.get_condition_functions(c)
+
     # d = lambda x: 2.0*np.exp(1.0*x)
     # b = lambda x: 0.0025*x*np.exp(-0.05*x)
 
@@ -40,39 +53,38 @@ if __name__ == "__main__":
     # init = lambda x: np.where((x < 0.1), np.exp(-1000*np.power(x-0.05,2)),0)
 
 
-    d = lambda x: 2*np.exp((x-1))
-    b = lambda x: 5*(-np.power(2*x-1,2)+1)
-    init = lambda x: np.power(x-1,2)
+        d = lambda x: np.exp(x)
+        b = lambda x: np.where(x < 1,np.sin(x*np.pi),np.zeros_like(x))
+        init = condition[0]
+        print("d1")
+        slm = SLM(d,b,init)
+        print("d2")
+        sol = slm.solve_second_order(1.0,0.001,1.0)
 
-    slm = SLM(d,b,init)
+        a = sol.shape[0]
+        b = sol.shape[1]
 
-    sol = slm.solve_second_order(1.0,0.001,1.0)
+        y_max = sol.max()
+        y_min = sol.min()
 
-    a = sol.shape[0]
-    b = sol.shape[1]
+        # First set up the figure, the axis, and the plot element we want to animate
+        fig = plt.figure()
+        ax = plt.axes(xlim=(0, 1.0), ylim=(y_min,y_max))
+        line, = ax.plot([], [], lw=2)
 
+        # initialization function: plot the background of each frame
+        def init():
+            line.set_data([], [])
+            return line,
 
-    from matplotlib import pyplot as plt
-    from matplotlib import animation
+        # animation function.  This is called sequentially
+        def animate(i):
+            
+            line.set_data(np.linspace(0.0,2.0,b), sol[i,:])
+            return line,
 
-    # First set up the figure, the axis, and the plot element we want to animate
-    fig = plt.figure()
-    ax = plt.axes(xlim=(0, 1.0), ylim=(0.0,10.0))
-    line, = ax.plot([], [], lw=2)
+        # call the animator.  blit=True means only re-draw the parts that have changed.
+        anim = animation.FuncAnimation(fig, animate, init_func=init,
+                                    frames=a, interval=1, blit=True)
 
-    # initialization function: plot the background of each frame
-    def init():
-        line.set_data([], [])
-        return line,
-
-    # animation function.  This is called sequentially
-    def animate(i):
-        
-        line.set_data(np.linspace(0.0,2.0,b), sol[i,:])
-        return line,
-
-    # call the animator.  blit=True means only re-draw the parts that have changed.
-    anim = animation.FuncAnimation(fig, animate, init_func=init,
-                                frames=a, interval=1, blit=True)
-
-    plt.show()
+        plt.show()

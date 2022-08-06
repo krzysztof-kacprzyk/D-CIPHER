@@ -174,6 +174,69 @@ class LinearOperator():
             new_coeffs.append(-coeff)
         return LinearOperator(new_coeffs, self.partials)
 
+def id(x):
+    return x
+
+def square(x):
+    return x ** 2
+
+
+class EFunction:
+
+    def __init__(self, act, symbol):
+        self.act_f = act
+        self.symbol = symbol
+    
+    def act(self,x,u):
+        return self.act_f(x,u)
+    
+    def __str__(self):
+        return self.symbol
+    
+
+proj_0 = EFunction(lambda vx,vu: vu[0], "u_0")
+proj_1 = EFunction(lambda vx,vu: vu[1], "u_1")
+square_0 = EFunction(lambda vx,vu: vu[0]**2, "u_0^2")
+cubic_0 = EFunction(lambda vx,vu: vu[0]**3, "u_0^3")
+
+class ED:
+
+    def __init__(self, partial, h, a=None):
+        if a is not None:
+            print("a is not implemented yet")
+        if not isinstance(partial,Partial):
+            print("partial has to be an instance of Partial")
+
+        self.partial = partial
+        self.h = h
+        self.a = a
+    
+    def __str__(self):
+        return f"{self.partial}({self.h})"
+
+    def sign(self):
+        return (-1) ** self.partial.order
+    
+
+def extract_differential_operator(dictQ, weights):
+    return " + ".join([f"{weight} * {e_derivative}" for (weight,e_derivative) in zip(weights,dictQ)])
+
+
+if __name__ == "__main__":
+
+    dictionaryQ = [ED(Partial([1,0]),proj_0),
+                                ED(Partial([0,1]),square_0)]
+    print(extract_differential_operator(dictionaryQ,[1.2,0.8]))
+
+    print(ED(Partial([0,1]),square_0).sign())
+
+    print(proj_0.act([0],[1,2]))
+
+
+
+
+
+
 
 # p = Partial([3,0,0,0])
 # for i in range(20):

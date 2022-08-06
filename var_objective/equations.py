@@ -1,16 +1,20 @@
 from multiprocessing import Value
 
-from var_objective.flow import get_flow_potential_2D
+from matplotlib import projections
+from var_objective.burger import Burger
+
+from var_objective.flow import get_complex_potential_im, get_complex_potential_re, get_flow_potential_2D, get_flow_stream_2D
 from var_objective.wave_equation import DampedWaveEquationDirichlet1D, WaveEquationDirichlet1D
 
 from .coulomb import get_potential_2D, get_potential_3D
-from .differential_operator import LinearOperator, Partial
+from .differential_operator import ED, LinearOperator, Partial, proj_0, square_0, proj_1, cubic_0
 from .population_models import SLM
 from .heat_equation import HeatEquationNeumann1D
 from sympy import Symbol, Function, symbols, sin, exp, pi, lambdify
 from abc import ABC, abstractmethod
 import numpy as np
 import matplotlib.pyplot as plt
+
 
 def get_pdes(name, parameters=None):
     
@@ -52,6 +56,20 @@ def get_pdes(name, parameters=None):
         return DrivenHarmonicOscillator(4.0,0.5,3.0,5.0)
     elif name == "HeatEquation5_L1":
         return HeatEquation3_L1(0.25,1.8)
+    elif name == "SLM1Dict":
+        return SLM1Dict()
+    elif name == "SLM1DictMany":
+        return SLM1DictMany()
+    elif name == "BurgerDict":
+        return BurgerDict(v=0.2)
+    elif name == "KdVDict":
+        return KdVDict()
+    elif name == "KSDict":
+        return KSDict()
+    elif name == "FullFlow2D":
+        return FullFlow2D()
+    elif name == "HeatEquationHomo":
+        return HeatEquationHomo(0.25)
     else:
         raise ValueError(f"Unknown equation: {name}")
 
@@ -241,22 +259,22 @@ class SLM1(PDE):
 
     @property
     def num_conditions(self):
-        return 2
+        return 1
     
     def get_expression(self):
         x0,x1 = symbols('x0,x1', real=True)
         u0 = symbols('u0', real=True)
         g = Function('g')
         L = LinearOperator([1.0,1.0],[Partial([1,0]),Partial([0,1])])
-        g = 2*exp(x1 - 1)*u0
+        g = 2*exp(1.5*x1)*u0
         return [(L,g)]
 
     def get_solution(self, boundary_functions):
         if len(boundary_functions) != self.num_conditions:
             raise ValueError("Wrong number of boundary functions")
-        death_rate = lambda x: 2*np.exp((x-1))
-        birth_rate = boundary_functions[0]
-        initial_age_distribution = boundary_functions[1]
+        death_rate = lambda x: 2*np.exp(1.5*x)
+        birth_rate = lambda x: np.where(x < 1,np.sin(x*np.pi),np.zeros_like(x))
+        initial_age_distribution = boundary_functions[0]
 
         def func(grid):
             assert grid.num_dims == 2
@@ -277,6 +295,558 @@ class SLM1(PDE):
 
         return [func]
 
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        X2 = Symbol('X2', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = exp(C*X1)*X2
+
+        return [g]
+
+        
+class SLM1Dict(PDE):
+    
+    def __init__(self):
+        super().__init__(None)
+    
+    @property
+    def name(self):
+        return "SLM1"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 1
+
+    def get_dictionaries(self):
+        dict0 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,2]),proj_0),
+            ED(Partial([2,0]),proj_0),
+            ED(Partial([1,1]),proj_0)
+        ]
+        return [dict0]
+    def get_weights(self,normalize=False):
+        weights0 = np.array([1.0,1.0,0.0,0.0,0.0])
+        if normalize:
+            weights0 /= np.linalg.norm(weights0,1)
+        return [weights0]
+
+    def get_free_parts(self,normalize=False):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g0 = Function('g')
+        g0 = -2*exp(1.5*x1)*u0
+        if normalize:
+            g0 = g0 / 2
+        return [g0]
+
+    def get_expression(self):
+        return super().get_expression()
+    
+
+    def get_solution(self, boundary_functions):
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        death_rate = lambda x: 2*np.exp(1.5*x)
+        birth_rate = lambda x: np.where(x < 1,np.sin(x*np.pi),np.zeros_like(x))
+        initial_age_distribution = boundary_functions[0]
+
+        def func(grid):
+            assert grid.num_dims == 2
+            axes = grid.axes
+            widths = grid.widths
+            delta_t = 0.001
+            slm = SLM(death_rate,birth_rate,initial_age_distribution)
+            U = slm.solve_second_order(widths[0], delta_t, widths[1])
+            sol = np.zeros(grid.shape)
+            grid_trans = grid.as_grid()
+            for t, g_t in enumerate(grid_trans):
+                for a, g_t_a in enumerate(g_t):
+                    ind_t = int(g_t_a[0] / delta_t)
+                    ind_a = int(g_t_a[1] / delta_t)
+                    sol[t,a] = U[ind_t, ind_a]
+
+            return sol
+
+        return [func]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        X2 = Symbol('X2', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = -exp(C*X1)*X2
+
+        return [g]
+
+class SLM1DictMany(PDE):
+    
+    def __init__(self):
+        super().__init__(None)
+    
+    @property
+    def name(self):
+        return "SLM1"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 1
+
+    def get_dictionaries(self):
+        dict0 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+        ]
+        dict1 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,2]),proj_0),
+        ]
+        dict2 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,2]),proj_0),
+            ED(Partial([2,0]),proj_0),
+        ]
+        dict3 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,2]),proj_0),
+            ED(Partial([2,0]),proj_0),
+            ED(Partial([1,1]),proj_0)
+        ]
+        dict4 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,2]),proj_0),
+            ED(Partial([2,0]),proj_0),
+            ED(Partial([1,1]),proj_0),
+            ED(Partial([0,1]),square_0)
+        ]
+        dict5 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,2]),proj_0),
+            ED(Partial([2,0]),proj_0),
+            ED(Partial([1,1]),proj_0),
+            ED(Partial([0,1]),square_0),
+            ED(Partial([0,2]),square_0)
+        ]
+        dict6 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,2]),proj_0),
+            ED(Partial([2,0]),proj_0),
+            ED(Partial([1,1]),proj_0),
+            ED(Partial([0,1]),square_0),
+            ED(Partial([0,2]),square_0),
+            ED(Partial([1,0]),square_0)
+        ]
+        dict7 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,2]),proj_0),
+            ED(Partial([2,0]),proj_0),
+            ED(Partial([1,1]),proj_0),
+            ED(Partial([0,1]),square_0),
+            ED(Partial([0,2]),square_0),
+            ED(Partial([1,0]),square_0),
+            ED(Partial([2,0]),square_0)
+        ]
+        dict8 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,2]),proj_0),
+            ED(Partial([2,0]),proj_0),
+            ED(Partial([1,1]),proj_0),
+            ED(Partial([0,1]),square_0),
+            ED(Partial([0,2]),square_0),
+            ED(Partial([1,0]),square_0),
+            ED(Partial([2,0]),square_0),
+            ED(Partial([1,0]),cubic_0)
+        ]
+        dict9 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,2]),proj_0),
+            ED(Partial([2,0]),proj_0),
+            ED(Partial([1,1]),proj_0),
+            ED(Partial([0,1]),square_0),
+            ED(Partial([0,2]),square_0),
+            ED(Partial([1,0]),square_0),
+            ED(Partial([2,0]),square_0),
+            ED(Partial([1,0]),cubic_0),
+            ED(Partial([0,1]),cubic_0)
+        ]
+
+        
+        return [dict0,dict1,dict2,dict3,dict4,dict5,dict6,dict7,dict8,dict9]
+    def get_weights(self,normalize=False):
+        weights0 = np.array([1.0,1.0])
+        weights1 = np.array([1.0,1.0,0.0])
+        weights2 = np.array([1.0,1.0,0.0,0.0])
+        weights3 = np.array([1.0,1.0,0.0,0.0,0.0])
+        weights4 = np.array([1.0,1.0,0.0,0.0,0.0,0.0])
+        weights5 = np.array([1.0,1.0,0.0,0.0,0.0,0.0,0.0])
+        weights6 = np.array([1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0])
+        weights7 = np.array([1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+        weights8 = np.array([1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+        weights9 = np.array([1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+
+        if normalize:
+            weights0 /= np.linalg.norm(weights0,1)
+            weights1 /= np.linalg.norm(weights1,1)
+            weights2 /= np.linalg.norm(weights2,1)
+            weights3 /= np.linalg.norm(weights3,1)
+            weights4 /= np.linalg.norm(weights4,1)
+            weights5 /= np.linalg.norm(weights5,1)
+            weights6 /= np.linalg.norm(weights6,1)
+            weights7 /= np.linalg.norm(weights7,1)
+            weights8 /= np.linalg.norm(weights8,1)
+            weights9 /= np.linalg.norm(weights9,1)
+        return [weights0,weights1,weights2,weights3,weights4,weights5,weights6,weights7,weights8,weights9]
+
+    def get_free_parts(self,normalize=False):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g0 = Function('g')
+        g0 = -2*exp(1.5*x1)*u0
+        if normalize:
+            g0 = g0 / 2
+        return [g0]*10
+
+    def get_expression(self):
+        return super().get_expression()
+    
+
+    def get_solution(self, boundary_functions):
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        death_rate = lambda x: 2*np.exp(1.5*x)
+        birth_rate = lambda x: np.where(x < 1,np.sin(x*np.pi),np.zeros_like(x))
+        initial_age_distribution = boundary_functions[0]
+
+        def func(grid):
+            assert grid.num_dims == 2
+            axes = grid.axes
+            widths = grid.widths
+            delta_t = 0.001
+            slm = SLM(death_rate,birth_rate,initial_age_distribution)
+            U = slm.solve_second_order(widths[0], delta_t, widths[1])
+            sol = np.zeros(grid.shape)
+            grid_trans = grid.as_grid()
+            for t, g_t in enumerate(grid_trans):
+                for a, g_t_a in enumerate(g_t):
+                    ind_t = int(g_t_a[0] / delta_t)
+                    ind_a = int(g_t_a[1] / delta_t)
+                    sol[t,a] = U[ind_t, ind_a]
+
+            return sol
+
+        return [func]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        X2 = Symbol('X2', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = -exp(C*X1)*X2
+
+        return [g]*10
+
+
+class BurgerDict(PDE):
+    
+    def __init__(self,v=0.1):
+        super().__init__(None)
+        self.v = v
+    
+    @property
+    def name(self):
+        return "Burger"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 1
+
+    def get_dictionaries(self):
+        dict0 = [
+            ED(Partial([0,0]),proj_0),
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,1]),square_0),
+            ED(Partial([0,2]),square_0),
+            ED(Partial([0,2]),proj_0)
+        ]
+        return [dict0]
+    def get_weights(self,normalize=False):
+        weights0 = np.array([0.0,1.0,0.0,0.5,0.0,-self.v])
+        # weights0 = np.array([1.0,0.5,-self.v])
+        if normalize:
+            weights0 /= np.linalg.norm(weights0,1)
+        return [weights0]
+
+    def get_sindy_weights(self):
+        return [np.array([1.0,0.0,0.0,self.v,-1.0,0.0])]
+
+    def get_free_parts(self,normalize=False):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g0 = Function('g')
+        g0 = 0 * x1
+        return [g0]
+
+    def get_expression(self):
+        return super().get_expression()
+    
+
+    def get_solution(self, boundary_functions):
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        initial_cond = boundary_functions[0]
+
+        def func(grid):
+            assert grid.num_dims == 2
+            axes = grid.axes
+            widths = grid.widths
+            delta_t = 0.002
+            delta_x = 0.002
+            burger = Burger(self.v,initial_cond)
+            U = burger.solve(delta_t,delta_x,widths[0],widths[1])
+            sol = np.zeros(grid.shape)
+            grid_trans = grid.as_grid()
+            for t, g_t in enumerate(grid_trans):
+                for a, g_t_a in enumerate(g_t):
+                    ind_t = int(g_t_a[0] / delta_t)
+                    ind_a = int(g_t_a[1] / delta_x)
+                    sol[t,a] = U[ind_t, ind_a]
+
+            return sol
+
+        return [func]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        X2 = Symbol('X2', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = C
+
+        return [g]
+
+
+class KSDict(PDE):
+    
+    def __init__(self,v=0.1):
+        super().__init__(None)
+        self.v = v
+    
+    @property
+    def name(self):
+        return "Burger"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 1
+
+    def get_dictionaries(self):
+        dict0 = [
+            ED(Partial([0,0]),proj_0),
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,1]),square_0),
+            ED(Partial([0,2]),proj_0),
+            ED(Partial([0,2]),square_0),
+            ED(Partial([0,3]),proj_0),
+            ED(Partial([0,3]),square_0),
+            ED(Partial([0,4]),proj_0),
+            ED(Partial([0,4]),square_0)
+        ]
+        return [dict0]
+    def get_weights(self,normalize=False):
+        weights0 = np.array([0.0,1.0,0.0,0.5,1.0,0.0,0.0,0.0,1.0,0.0])
+        # weights0 = np.array([1.0,0.5,-self.v])
+        if normalize:
+            weights0 /= np.linalg.norm(weights0,1)
+        return [weights0]
+
+    def get_sindy_weights(self):
+        return [np.array([1.0,0.0,0.0,-1.0,0,-1,-1,0,0,0])]
+
+    def get_free_parts(self,normalize=False):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g0 = Function('g')
+        g0 = 0 * x1
+        return [g0]
+
+    def get_expression(self):
+        return super().get_expression()
+    
+
+    def get_solution(self, boundary_functions):
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        initial_cond = boundary_functions[0]
+        import scipy.io
+        data = scipy.io.loadmat('var_objective/kuramoto_sivishinky.mat')
+        u = data['uu']
+        x = data['x'][:,0]
+        t = data['tt'][0,:]
+        dt = t[1]-t[0]
+        dx = x[2]-x[1]
+
+        def func(grid):
+            assert grid.num_dims == 2
+            axes = grid.axes
+            widths = grid.widths
+            delta_t = dt
+            delta_x = dx
+
+            sol = np.zeros(grid.shape)
+            grid_trans = grid.as_grid()
+            for t, g_t in enumerate(grid_trans):
+                for a, g_t_a in enumerate(g_t):
+                    # print(g_t_a[0])
+                    # print(delta_t)
+                    # print(g_t_a[1])
+                    # print(delta_x)
+                    ind_t = int(g_t_a[0] / delta_t)
+                    ind_a = int(g_t_a[1] / delta_x)
+                    sol[t,a] = u[ind_a, ind_t]
+
+            return sol
+
+        return [func]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        X2 = Symbol('X2', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = C
+
+        return [g]
+
+class KdVDict(PDE):
+    
+    def __init__(self):
+        super().__init__(None)
+    
+    @property
+    def name(self):
+        return "KdV"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 2
+
+    def get_dictionaries(self):
+        dict1 = [
+            ED(Partial([0,0]),proj_0),
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,1]),square_0),
+            ED(Partial([0,2]),square_0),
+            ED(Partial([0,2]),proj_0),
+            ED(Partial([0,3]),proj_0),
+            ED(Partial([0,3]),square_0)
+        ]
+        dict0 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),square_0),
+            ED(Partial([0,3]),proj_0)
+        ]
+        return [dict0]
+    def get_weights(self,normalize=False):
+        weights1 = np.array([0,1.0,0.0,3.0,0,0,1.0,0])
+        weights0 = np.array([1.0,3.0,1.0])
+        if normalize:
+            weights0 /= np.linalg.norm(weights0,1)
+        return [weights0]
+
+    def get_free_parts(self,normalize=False):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g0 = Function('g')
+        g0 = 0 * x1
+        return [g0]
+
+    def get_expression(self):
+        return super().get_expression()
+    
+
+    def get_solution(self, boundary_functions):
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        c = boundary_functions[0]
+        a = boundary_functions[1]
+
+        def func(grid):
+            assert grid.num_dims == 2
+            x = grid.by_axis()
+            sol = c/2*np.cosh(np.sqrt(c)/2*(x[1]-c*x[0]-a))**-2
+
+            return sol
+
+        return [func]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        X2 = Symbol('X2', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = C
+
+        return [g]
 
 class HeatEquation1(PDE):
 
@@ -518,6 +1088,9 @@ class HeatEquation3_L1(PDE):
         g = exp(C*X0)
 
         return [g]
+
+
+
     
 class HeatEquation4_L1(PDE):
 
@@ -576,6 +1149,102 @@ class HeatEquation4_L1(PDE):
             return sol
 
         return [func]
+
+
+class HeatEquationHomo(PDE):
+
+    def __init__(self, k):
+        super().__init__({'k': k})
+
+    @property
+    def name(self):
+        return "HeatEquationHomo"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  1
+
+    @property
+    def num_conditions(self):
+        return 1
+
+    def get_dictionaries(self):
+        dict0 = [
+            ED(Partial([0,0]),proj_0),
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([0,1]),square_0),
+            ED(Partial([0,2]),square_0),
+            ED(Partial([0,2]),proj_0)
+        ]
+        return [dict0]
+    def get_weights(self,normalize=False):
+        weights0 = np.array([0.0,1.0,0.0,0.0,0.0,-self.params['k']])
+        # weights0 = np.array([1.0,0.5,-self.v])
+        if normalize:
+            weights0 /= np.linalg.norm(weights0,1)
+        return [weights0]
+
+    def get_sindy_weights(self):
+        return [np.array([1.0,0.0,0.0,self.params['k'],0.0,0.0])]
+
+    def get_free_parts(self,normalize=False):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g0 = Function('g')
+        g0 = 0 * x1
+        return [g0]
+
+    def get_expression(self):
+        # x0,x1 = symbols('x0,x1', real=True)
+        # g = Function('g')
+        # L = LinearOperator([1.0,-self.params['k']],[Partial([1,0]),Partial([0,2])])
+        # g = (1+np.abs(self.params['k'])) * exp(self.params['theta']*x0)
+        # return [(L,g)]
+        pass
+    
+    def get_solution(self, boundary_functions):
+
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+
+        heat_source = lambda X: np.zeros_like(X[0])
+        boundary1  = lambda x: np.zeros_like(x)
+        boundary2 = lambda x: np.zeros_like(x)
+        initial_temp = boundary_functions[0]
+
+        def func(grid):
+            assert grid.num_dims == 2
+            axes = grid.axes
+            widths = grid.widths
+            delta_t = 0.001
+            delta_x = 0.001
+            heat_equation = HeatEquationNeumann1D(self.params['k'], heat_source, boundary1, boundary2, initial_temp)
+            U = heat_equation.btcs(widths[0], widths[1], delta_t, delta_x)
+            sol = np.zeros(grid.shape)
+            grid_trans = grid.as_grid()
+            for t, g_t in enumerate(grid_trans):
+                for x, g_t_x in enumerate(g_t):
+                    ind_t = int(g_t_x[0] / delta_t)
+                    ind_x = int(g_t_x[1] / delta_x)
+                    sol[t,x] = U[ind_t, ind_x]
+
+            return sol
+
+        return [func]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = C
+
+        return [g]
 
 class WaveEquation1_L1(PDE):
 
@@ -690,6 +1359,9 @@ class WaveEquation2_L1(PDE):
         return [func]
 
 
+
+
+
 class Coulomb2D(PDE):
 
     def __init__(self,k):
@@ -771,6 +1443,114 @@ class Flow2D(PDE):
             return get_flow_potential_2D(grid,locs,strengths)
 
         return [func]
+
+class FullFlow2D(PDE):
+
+    def __init__(self):
+        super().__init__(None)
+    
+    @property
+    def name(self):
+        return "FullFlow2D"
+
+    @property
+    def M(self):
+        return 2
+
+    @property
+    def N(self):
+        return  2
+
+    @property
+    def num_conditions(self):
+        return 2
+
+    def get_dictionaries(self):
+        
+        dict0 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([2,0]),proj_0),
+            ED(Partial([0,2]),proj_0)
+        ]
+        dict1 = [
+            ED(Partial([1,0]),proj_1),
+            ED(Partial([0,1]),proj_1),
+            ED(Partial([2,0]),proj_1),
+            ED(Partial([0,2]),proj_1)
+        ]
+        dict2 = [
+            ED(Partial([1,0]),proj_0),
+            ED(Partial([0,1]),proj_1),
+            ED(Partial([2,0]),proj_0),
+            ED(Partial([0,2]),proj_1)
+        ]
+        dict3 = [
+            ED(Partial([1,0]),proj_1),
+            ED(Partial([0,1]),proj_0),
+            ED(Partial([2,0]),proj_1),
+            ED(Partial([0,2]),proj_0)
+        ]
+        return [dict0,dict1,dict2,dict3]
+    def get_weights(self,normalize=False):
+        weights0 = np.array([0.0,0.0,1.0,1.0])
+        weights1 = np.array([0.0,0.0,1.0,1.0])
+        weights2 = np.array([1.0,-1.0,0.0,0.0])
+        weights3 = np.array([1.0,1.0,0.0,0.0])
+        if normalize:
+            weights0 /= np.linalg.norm(weights0,1)
+            weights1 /= np.linalg.norm(weights1,1)
+            weights2 /= np.linalg.norm(weights2,1)
+            weights3 /= np.linalg.norm(weights3,1)
+        return [weights0,weights1,weights2,weights3]
+
+    def get_free_parts(self,normalize=False):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g0 = Function('g')
+        g0 = 0 * x1
+        return [g0,g0,g0,g0]
+
+    
+    def get_expression(self):
+        x0,x1 = symbols('x0,x1', real=True)
+        g = Function('g')
+        L = LinearOperator([1.0,1.0],[Partial([2,0]),Partial([0,2])])
+        g = 0.0*x0 + 0.0*x1
+        return [(L,g)]
+
+    def get_solution(self, boundary_functions):
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+    
+        def func_potential(grid):
+            locs = boundary_functions[0]
+            strengths = boundary_functions[1]
+            locs[:,0] *= grid.widths[0]
+            locs[:,1] *= grid.widths[1]
+            return get_flow_potential_2D(grid,locs,strengths)
+            # return get_complex_potential_re(grid,locs,strengths)
+        
+        def func_stream(grid):
+            locs = boundary_functions[0]
+            strengths = boundary_functions[1]
+            locs[:,0] *= grid.widths[0]
+            locs[:,1] *= grid.widths[1]
+            return get_flow_stream_2D(grid,locs,strengths)
+            # return get_complex_potential_im(grid,locs,strengths)
+
+
+        return [func_potential, func_stream]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        X2 = Symbol('X2', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = C
+
+        return [g,g,g,g]
 
 class Coulomb3D(PDE):
 

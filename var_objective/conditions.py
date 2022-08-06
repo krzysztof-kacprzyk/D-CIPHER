@@ -43,6 +43,44 @@ class RandomConditions:
     def get_condition_functions(self, index):
         return [generate_random_function(self.length_scale, self.mean_range,self.std_range,seed=seed) for seed in self.seeds[index]]
 
+class RandomConditionsNonNegative:
+
+    def __init__(self, num_conditions_per_sample, num_samples, length_scale, mean_range, std_range, seed=0):
+
+        self.num_conditions_per_sample = num_conditions_per_sample
+        self.num_samples = num_samples
+        self.length_scale = length_scale
+        self.mean_range = mean_range
+        self.std_range = std_range
+
+        np.random.seed(seed)
+        self.seeds = np.random.randint(0,1000000,size=(self.num_samples,self.num_conditions_per_sample))
+
+    def get_num_samples(self):
+        return self.num_samples
+
+    def get_condition_functions(self, index):
+        return [generate_random_nonnegative_function(self.length_scale, self.mean_range,self.std_range,seed=seed) for seed in self.seeds[index]]
+
+class RandomConditionsBoundary:
+
+    def __init__(self, num_conditions_per_sample, num_samples, length_scale, std_range, seed=0):
+
+        self.num_conditions_per_sample = num_conditions_per_sample
+        self.num_samples = num_samples
+        self.length_scale = length_scale
+        self.std_range = std_range
+
+        np.random.seed(seed)
+        self.seeds = np.random.randint(0,1000000,size=(self.num_samples,self.num_conditions_per_sample))
+
+    def get_num_samples(self):
+        return self.num_samples
+
+    def get_condition_functions(self, index):
+        return [generate_random_function_with_boundary(self.length_scale,self.std_range,seed=seed) for seed in self.seeds[index]]
+
+
 class RandomSources2D:
 
     def __init__(self, num_sources_per_sample, num_samples, seed=0):
@@ -127,11 +165,32 @@ def get_conditions_set(name, params={'seed':0, 'num_samples':1}):
         conditions.add_sample([lambda x: np.zeros_like(x)])
         conditions.add_sample([lambda x: x])
         conditions.add_sample([lambda x: np.cos(x)])
+    elif name == "BurgerSin":
+        conditions = Conditions(1)
+        conditions.add_sample([lambda x: np.sin(np.pi*x)])
+        conditions.add_sample([lambda x: np.sin(np.pi*x) + np.sin(3*np.pi*x)])
+        conditions.add_sample([lambda x: np.sin(3*np.pi*x)])
+        conditions.add_sample([lambda x: np.sin(4*np.pi*x)])
+        conditions.add_sample([lambda x: np.sin(5*np.pi*x)])
+        conditions.add_sample([lambda x: np.sin(6*np.pi*x)])
+        conditions.add_sample([lambda x: np.sin(7*np.pi*x)])
+        conditions.add_sample([lambda x: np.sin(8*np.pi*x)])
+        conditions.add_sample([lambda x: np.sin(9*np.pi*x)])
+        conditions.add_sample([lambda x: np.sin(10*np.pi*x)])
     elif name == 'HeatRandom':
         length_scale = 0.4
         mean_range = (-10,10)
         std_range = (0.5, 4)
         conditions = RandomConditions(1,params['num_samples'],length_scale, mean_range, std_range, seed=params['seed'])
+    elif name == 'BurgerRandom':
+        length_scale = 0.4
+        std_range = (0.5, 4)
+        conditions = RandomConditionsBoundary(1,params['num_samples'],length_scale, std_range, seed=params['seed'])
+    elif name == 'PopulationRandom':
+        length_scale = 0.2
+        mean_range = (1,10)
+        std_range = (0.5, 4)
+        conditions = RandomConditionsNonNegative(1,params['num_samples'],length_scale, mean_range, std_range, seed=params['seed'])
     elif name == 'TestRandom':
         length_scale = 0.4
         mean_range = (-1,1)
@@ -145,6 +204,14 @@ def get_conditions_set(name, params={'seed':0, 'num_samples':1}):
         conditions = RandomNumbers(1,1.0,2.0,params['num_samples'],seed=params['seed'])
     elif name == 'NumbersRandom2':
         conditions = RandomNumbers(2,-2.0,2.0,params['num_samples'],seed=params['seed'])
+    elif name == 'KdVNumbers':
+        conditions = Conditions(2)
+        conditions.add_sample([5,-3])
+        conditions.add_sample([1,-1])
+        # conditions.add_sample([7,-4])
+        # conditions.add_sample([1,-2])
+        # conditions.add_sample([4,-1])
+        
     return conditions
 
 def generate_random_number(num_numbers,min_number,max_number,seed=0):
@@ -201,6 +268,42 @@ def generate_random_function(length_scale, mean_range, std_range, seed=0):
         org_shape = x.shape
         covariates = x.reshape(-1,1)
         return gp.sample_y(covariates,random_state=seed).reshape(*org_shape) * std + mean
+
+    return f
+
+def generate_random_nonnegative_function(length_scale, mean_range, std_range, seed=0):
+
+    np.random.seed(seed)
+
+    mean = np.random.uniform(mean_range[0], mean_range[1])
+    std = np.random.uniform(std_range[0], std_range[1])
+
+    gp = GaussianProcessRegressor(kernel=RBF(length_scale=length_scale),random_state=seed)
+
+    def f(x):
+        org_shape = x.shape
+        covariates = x.reshape(-1,1)
+        return (gp.sample_y(covariates,random_state=seed).reshape(*org_shape)**2) * std + mean
+
+    return f
+
+def generate_random_function_with_boundary(length_scale, std_range, seed=0):
+
+    np.random.seed(seed)
+
+    std = np.random.uniform(std_range[0], std_range[1])
+
+    max_x = 2.0
+    b1 = 0.0
+    b2 = 0.0
+
+    gp = GaussianProcessRegressor(kernel=RBF(length_scale=length_scale),random_state=seed)
+    gp.fit([[0.0],[max_x]],[b1,b2])
+
+    def f(x):
+        org_shape = x.shape
+        covariates = x.reshape(-1,1)
+        return gp.sample_y(covariates,random_state=seed).reshape(*org_shape) * std
 
     return f
 

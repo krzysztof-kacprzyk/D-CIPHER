@@ -64,6 +64,23 @@ def all_derivatives(scalar_field, grid, dimension, order, engine):
 
     return derivative_fields
 
+def all_derivatives_dict(vector_field, grid, dictQ, engine):
+
+    computed_eds = []
+    for j, ed in enumerate(dictQ):
+        partial = ed.partial
+        transformed = ed.h.act(grid.by_axis(),vector_field)
+        new_order_list = partial.order_list[:]
+        for k in range(partial.dimension):
+            while new_order_list[k] > 0:
+                new_order_list[k] -= 1
+                variable = k
+                transformed = engine.differentiate(transformed,grid,variable)
+        computed_eds.append(transformed)
+    
+    return np.stack(computed_eds,axis=0)
+
+
 
 class NumpyDiff(DerivativeEngine):
 
