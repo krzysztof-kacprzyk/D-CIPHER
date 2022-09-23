@@ -7,14 +7,14 @@ from var_objective.flow import get_complex_potential_im, get_complex_potential_r
 from var_objective.wave_equation import DampedWaveEquationDirichlet1D, WaveEquationDirichlet1D
 
 from .coulomb import get_potential_2D, get_potential_3D
-from .differential_operator import ED, LinearOperator, Partial, proj_0, square_0, proj_1, cubic_0
+from .differential_operator import ED, EFunction, LinearOperator, Partial, proj_0, square_0, proj_1, cubic_0
 from .population_models import SLM
 from .heat_equation import HeatEquationNeumann1D
 from sympy import Symbol, Function, symbols, sin, exp, pi, lambdify
 from abc import ABC, abstractmethod
 import numpy as np
 import matplotlib.pyplot as plt
-
+import pickle
 
 def get_pdes(name, parameters=None):
     
@@ -70,6 +70,8 @@ def get_pdes(name, parameters=None):
         return FullFlow2D()
     elif name == "HeatEquationHomo":
         return HeatEquationHomo(0.25)
+    elif name == "NS":
+        return NS()
     else:
         raise ValueError(f"Unknown equation: {name}")
 
@@ -766,6 +768,141 @@ class KSDict(PDE):
         g = C
 
         return [g]
+
+
+class NS(PDE):
+    
+    def __init__(self):
+        super().__init__(None)
+    
+    @property
+    def name(self):
+        return "NS"
+
+    @property
+    def M(self):
+        return 3
+
+    @property
+    def N(self):
+        return  3
+
+    @property
+    def num_conditions(self):
+        return 1
+
+    def get_dictionaries(self):
+
+        proj_2 = EFunction(lambda vx,vu: vu[2], "u_2")
+        prod_0_1 = EFunction(lambda vx,vu: vu[0]*vu[1], "(u_0)*(u_1)")
+        prod_0_2 = EFunction(lambda vx,vu: vu[0]*vu[2], "(u_0)*(u_2)")
+        prod_1_2 = EFunction(lambda vx,vu: vu[1]*vu[2], "(u_1)*(u_2)")
+
+        dict0 = [
+           ED(Partial([1,0,0]),proj_2),
+           ED(Partial([0,1,0]),prod_0_2),
+           ED(Partial([0,0,1]),prod_1_2),
+           ED(Partial([0,2,0]),proj_2),
+           ED(Partial([0,0,2]),proj_2)
+        ]
+        dict1 = [
+            ED(Partial([0,1,0]),proj_0),
+            ED(Partial([0,0,1]),proj_1)
+        ]
+        dict2 = [
+            ED(Partial([0,0,0]),proj_2),
+            ED(Partial([0,1,0]),proj_1),
+            ED(Partial([0,0,1]),proj_0)
+        ]
+        return [dict0,dict1,dict2]
+    def get_weights(self,normalize=False):
+        weights0 = np.array([1.0,1.0,1.0,-0.005,-0.005])
+        weights1 = np.array([1.0,1.0])
+        weights2 = np.array([1.0,-1.0,1.0])
+        
+        # weights0 = np.array([1.0,0.5,-self.v])
+        if normalize:
+            weights0 /= np.linalg.norm(weights0,1)
+            weights1 /= np.linalg.norm(weights1,1)
+            weights2 /= np.linalg.norm(weights2,1)
+        return [weights0, weights1,weights2]
+
+    def get_sindy_weights(self):
+        return [np.array([1.0,1.0,1.0,-0.005,-0.005])]
+
+    def get_free_parts(self,normalize=False):
+        x0,x1 = symbols('x0,x1', real=True)
+        u0 = symbols('u0', real=True)
+        g0 = Function('g')
+        g0 = 0 * x1
+        return [g0]*3
+
+    def get_expression(self):
+        return super().get_expression()
+    
+
+    def get_solution(self, boundary_functions):
+        if len(boundary_functions) != self.num_conditions:
+            raise ValueError("Wrong number of boundary functions")
+        initial_cond = boundary_functions[0]
+
+        with open('ns_data.p','rb') as file:
+            data = pickle.load(file)
+
+        u = data['u']
+        dt = data['dt']
+        dx = data['dx']
+        dy = data['dy']
+        nx = data['nx']
+        
+
+        def func_with_axis(return_axis):
+
+            def func(grid):
+                assert grid.num_dims == 3
+                axes = grid.axes
+                widths = grid.widths
+                delta_t = dt
+                delta_y = dy
+                delta_x = dx
+                
+
+                sol_u = np.zeros(grid.shape)
+                sol_v = np.zeros(grid.shape)
+                sol_rot = np.zeros(grid.shape)
+                grid_trans = grid.as_grid()
+                for t, g_t in enumerate(grid_trans):
+                    for x, g_t_x in enumerate(g_t):
+                        for y, g_t_x_y in enumerate(g_t_x):
+                            ind_t = min(int(g_t_x_y[0] / delta_t),nx-1)
+                            ind_x = min(int(g_t_x_y[1] / delta_x),nx-1)
+                            ind_y = min(int(g_t_x_y[2] / delta_y),nx-1)
+
+                            sol_u[t,x,y] = u[0,ind_t, ind_x, ind_y]
+                            sol_v[t,x,y] = u[1,ind_t, ind_x, ind_y]
+                            sol_rot[t,x,y] = u[2,ind_t, ind_x, ind_y]
+                
+                if return_axis == 0:
+                    return sol_u
+                elif return_axis == 1:
+                    return sol_v
+                elif return_axis == 2:
+                    return sol_rot
+            
+            return func
+
+        return [func_with_axis(0),func_with_axis(1),func_with_axis(2)]
+
+    def get_functional_form_normalized(self,norm='l1'):
+        X0 = Symbol('X0', real=True)
+        X1 = Symbol('X1', real=True)
+        X2 = Symbol('X2', real=True)
+        C = Symbol('C', real=True, positive=True)
+      
+        g = C
+
+        return [g]*3
+
 
 class KdVDict(PDE):
     
