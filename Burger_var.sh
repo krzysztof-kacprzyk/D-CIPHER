@@ -1,0 +1,1 @@
+python -m var_objective.run_var_square_dict BurgerDict 0 2.0 20 0.001 200 BurgerRandom 2spline2Dtrans 10 1 l1 lars-imp --seed 2 --num_samples 1
