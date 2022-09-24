@@ -66,20 +66,20 @@ PDE-FIND_target_weights: {pde_find_target_weights}
 PDE-FIND_stlsq_best_found_weights: {pde_find_stlsq_best_found_weights}
 PDE-FIND_frols_best_found_weights: {pde_find_frols_best_found_weights}
 PDE-FIND_sr3_best_found_weights: {pde_find_sr3_best_found_weights}
-PDE-FIND_srr_best_found_weights: {pde_find_sr3_best_found_weights}
+PDE-FIND_srr_best_found_weights: {pde_find_srr_best_found_weights}
 WeakSindy_stlsq_best_found_weight: {weak_sindy_stlsq_best_found_weights}
 WeakSindy_frols_best_found_weight: {weak_sindy_frols_best_found_weights}
 WeakSindy_sr3_best_found_weight: {weak_sindy_sr3_best_found_weights}
-WeakSindy_srr_best_found_weight: {weak_sindy_sr3_best_found_weights}
+WeakSindy_srr_best_found_weight: {weak_sindy_srr_best_found_weights}
 Var_error: {var_error}
 PDE-FIND_stlsq_error: {pde_find_stlsq_error}
 PDE-FIND_frols_error: {pde_find_frols_error}
 PDE-FIND_sr3_error: {pde_find_sr3_error}
-PDE-FIND_srr_error: {pde_find_sr3_error}
+PDE-FIND_srr_error: {pde_find_srr_error}
 WeakSindy_stlsq_error: {weak_sindy_stlsq_error}
 WeakSindy_frols_error: {weak_sindy_frols_error}
 WeakSindy_sr3_error: {weak_sindy_sr3_error}
-WeakSindy_srr_error: {weak_sindy_sr3_error}
+WeakSindy_srr_error: {weak_sindy_srr_error}
 Time elapsed: {time_elapsed}"""
 
     with open(filename, 'a') as f:
