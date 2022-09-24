@@ -104,6 +104,8 @@ if __name__ == '__main__':
     parser.add_argument('solver', help='Least squares solver')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num_samples', type=int, default=1)
+    parser.add_argument('--sign_index', type=int, default=1)
+    parser.add_argument('--sindy_order', type=int, default=2)
 
     args = parser.parse_args()
 
@@ -217,7 +219,7 @@ gplearn config: {gp_params}
         print(f"Loss for the best found weights: {best_found_loss}")
         print(f"Best found weights: {best_found_weights}")
 
-        if best_found_weights[1] < 0:
+        if best_found_weights[args.sign_index] < 0:
             best_found_weights *= -1
 
         var_error = np.sqrt(np.mean((best_found_weights - target_weights) ** 2))
@@ -240,7 +242,7 @@ gplearn config: {gp_params}
         pde_lib = ps.PDELibrary(
             library_functions=library_functions,
             function_names=library_function_names,
-            derivative_order=4,
+            derivative_order=args.sindy_order,
             spatial_grid=x,
             is_uniform=True,
         )
@@ -262,7 +264,7 @@ gplearn config: {gp_params}
         XT = np.asarray([X, T]).T
         weak_pde_lib = ps.WeakPDELibrary(library_functions=library_functions,
                                     function_names=library_function_names,
-                                    derivative_order=4,
+                                    derivative_order=args.sindy_order,
                                     spatiotemporal_grid=XT,
                                     is_uniform=True, K=1000,
                                     )
