@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from matplotlib import cm
 
-from scipy.interpolate import UnivariateSpline, SmoothBivariateSpline
+from scipy.interpolate import UnivariateSpline, SmoothBivariateSpline, griddata
 
 np.random.seed(0)
 
@@ -45,6 +45,12 @@ def estimate_fields(observed_grid, observed_dataset, full_grid, seed=0, method='
                     u_pred_j = spline(full_grid.as_covariates()[:,0],full_grid.as_covariates()[:,1], grid=False) * std + mean
                 else:
                     raise ValueError("Spline interpolation is implemented only up to 2 dimensions")
+            elif method == 'nearest':
+                u_pred_j = griddata(observed_grid.as_covariates(), (u_obs_j - mean)/std, full_grid.as_covariates(), method='nearest') * std + mean
+            elif method == 'linear':
+                u_pred_j = griddata(observed_grid.as_covariates(), (u_obs_j - mean)/std, full_grid.as_covariates(), method='linear') * std + mean
+            elif method == 'cubic':
+                u_pred_j = griddata(observed_grid.as_covariates(), (u_obs_j - mean)/std, full_grid.as_covariates(), method='cubic') * std + mean
             elif method == 'none':
                 u_pred_j = u_obs_j
             else:
@@ -56,11 +62,11 @@ def estimate_fields(observed_grid, observed_dataset, full_grid, seed=0, method='
             # ax.scatter(observed_grid.by_axis()[0], observed_grid.by_axis()[1],u_obs_j, cmap=cm.coolwarm)
             # plt.show()
 
-            fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-            # Plot the surface.
-            surf = ax.plot_surface(full_grid.by_axis()[0], full_grid.by_axis()[1], u_pred_j, linewidth=0, antialiased=False, cmap=cm.coolwarm)
-            ax.scatter(observed_grid.by_axis()[0], observed_grid.by_axis()[1],u_obs_j)
-            plt.show()
+            # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+            # # Plot the surface.
+            # surf = ax.plot_surface(full_grid.by_axis()[0], full_grid.by_axis()[1], u_pred_j, linewidth=0, antialiased=False, cmap=cm.coolwarm)
+            # ax.scatter(observed_grid.by_axis()[0], observed_grid.by_axis()[1],u_obs_j)
+            # plt.show()
 
 
            
