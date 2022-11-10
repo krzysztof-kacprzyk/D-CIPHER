@@ -120,7 +120,7 @@ if __name__ == '__main__':
     parser.add_argument('noise_ratio', type=float, help='Noise ration for data generation')
     parser.add_argument('full_grid_samples', type=int, help='Frequency of the full grid')
     parser.add_argument('conditions_set', help='Conditions set name from conditions.py')
-    parser.add_argument('basis', choices=['fourier','2spline2D', '2spline2Dtrans', '2spline3Dtrans', '2spline1Dtrans', '3spline2Dtrans'])
+    parser.add_argument('basis', choices=['fourier','2spline2D', '2spline2Dtrans', '2spline3Dtrans', '2spline1Dtrans', '3spline2Dtrans','4spline2Dtrans'])
     parser.add_argument('max_ind_basis', type=int, help='Maximum index for test functions. Number of used test functions is a square of this number')
     parser.add_argument('num_trials', type=int, help='Number of trials')
     parser.add_argument('normalization',choices=['l1','l2'])
@@ -129,6 +129,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_samples', type=int, default=1)
     parser.add_argument('--no_gp', action='store_true', default=False)
     parser.add_argument('--sign_index', type=int, default=1)
+    parser.add_argument('--interpolation', choices=['gp','spline','none'], default='gp')
 
     args = parser.parse_args()
 
@@ -184,7 +185,7 @@ gplearn config: {gp_params}
 
         print(f"Estimating fields on a grid with frequency {args.full_grid_samples} per dimension")
         start = time.time()
-        full_dataset = estimate_fields(observed_grid,observed_dataset,full_grid,seed=seed)
+        full_dataset = estimate_fields(observed_grid,observed_dataset,full_grid,seed=seed, method=args.interpolation)
         end = time.time()
         print(f"Fields estimated in {end-start} seconds")
 
@@ -205,6 +206,9 @@ gplearn config: {gp_params}
         elif args.basis == '3spline2Dtrans':
             index_limits = [args.max_ind_basis] * 2
             basis = BSplineTrans2D(widths, 3, index_limits)
+        elif args.basis == '4spline2Dtrans':
+            index_limits = [args.max_ind_basis] * 2
+            basis = BSplineTrans2D(widths, 4, index_limits)
         elif args.basis == '2spline3Dtrans':
             index_limits = [args.max_ind_basis] * 3
             basis = BSplineTrans3D(widths, 2, index_limits)
