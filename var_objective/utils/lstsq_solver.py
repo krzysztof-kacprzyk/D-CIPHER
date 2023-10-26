@@ -514,13 +514,19 @@ class UnitLstsqLARSImproved:
         self.gram = A.T @ A
         self.m, self.n = A.shape
 
+        self.homogeneous_calculated = False
+    
+    def calculate_homogeneous(self):
         self.cvx = UnitL1NormLeastSquare_CVX(A)
         self.homogeneous_loss, self.homogeneous_solution = self.cvx.solve(np.zeros((self.m,1)),take_mean=False)
-        
+        self.homogeneous_calculated = True
+
     
     def solve(self,b,take_mean=True):
 
         if b is None:
+            if not self.homogeneous_calculated:
+                self.calculate_homogeneous()
             if take_mean:
                 loss = self.homogeneous_loss / self.m
             else:
@@ -538,6 +544,8 @@ class UnitLstsqLARSImproved:
         if index == len(norms):
             if norms[-1] == 0.0:
                 # We have a homogeneous case
+                if not self.homogeneous_calculated:
+                    self.calculate_homogeneous()
                 if take_mean:
                     loss = self.homogeneous_loss / self.m
                 else:
