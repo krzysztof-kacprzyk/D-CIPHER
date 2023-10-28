@@ -1,9 +1,9 @@
 [submodule "gplearn"]
 	path = gplearn
-	url = git@github.com:krzysztof-kacprzyk/gplearn.git
+	url = https://github.com/krzysztof-kacprzyk/gplearn.git
 [submodule "tvregdiff"]
 	path = tvregdiff
-	url = git@github.com:krzysztof-kacprzyk/tvregdiff.git
+	url = https://github.com/krzysztof-kacprzyk/tvregdiff.git
 [submodule "derivative"]
 	path = derivative
-	url = git@github.com:krzysztof-kacprzyk/derivative.git
+	url = https://github.com/krzysztof-kacprzyk/derivative.git
