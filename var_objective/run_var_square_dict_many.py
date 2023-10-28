@@ -169,6 +169,7 @@ gplearn config: {gp_params}
     save_meta(filename_meta,filename_csv,args.seed,args,gp_params)
 
     results = defaultdict(list)
+    times = defaultdict(list)
     
     num_of_dicts = 10
 
@@ -194,6 +195,8 @@ gplearn config: {gp_params}
         print(f"Fields estimated in {end-start} seconds")
 
         for dict_num in range(num_of_dicts):
+
+            dict_start = time.time()
 
             if args.basis == 'fourier':
                 basis = FourierSine2D(widths)
@@ -271,6 +274,22 @@ gplearn config: {gp_params}
                 best_found_weights = -1 * best_found_weights
             
             error = np.sqrt(np.mean((target_weights - best_found_weights) ** 2))
-            results[dict_num].append(error)
 
+            dict_end = time.time()
+
+            results[dict_num].append(error)
+            times[dict_num].append(dict_end-dict_start)
+    errors_mean = []
+    errors_std = []
+    times_mean = []
+    times_std = []
+
+    for dict_num in range(num_of_dicts):
+        errors_mean.append(np.mean(results[dict_num]))
+        errors_std.append(np.std(results[dict_num]))
+        times_mean.append(np.mean(times[dict_num]))
+        times_std.append(np.std(times[dict_num]))
+
+    results_df = pd.DataFrame({'dict_num':list(range(num_of_dicts)),'error_mean':errors_mean,'error_std':errors_std,'time_mean':times_mean,'time_std':times_std})
+    results_df.to_csv(filename_csv)
     print(results)

@@ -923,166 +923,82 @@ class UnitLstsqHeuristicFull:
 
         return loss, x
 
-
-
-
-
 if __name__ == "__main__":
-
 
     np.random.seed(0)
 
-    # num_tests = 1
-    # scale_factor  = 100 # The bigger the scale_factor the less uniform entries are
-    # m = 10000
-    # n = 5
+    num_tests = 1000
+    scale_factor  = 100 # The bigger the scale_factor the less uniform entries are
+    m = 1000
 
-    file_names = glob.glob("results/matrices/*.p")
+    for n in range(1,8):
 
-    df = pd.DataFrame()
+        df = pd.DataFrame()
 
-    for i, file_name in enumerate(file_names):
+        for i in range(num_tests):
 
-        if i == 2000:
-            break
-        print("-"*10)
-        print(f"Test {i+1}/{len(file_names)}")
+            print("-"*10)
+            print(f"Test {i+1}/{num_tests}")
 
-        # b = b.reshape(-1,1)
+            A = np.random.normal(0.0,1.0,(m,n))
+            b = np.random.normal(0.0,1.0,(m,1))
+        
 
-        # solver1 = UnitLstsqSDR(A)
-        # start = time.time()
-        # loss1,x1 = solver1.solve(b, take_mean=False)
-        # end = time.time()  
-        # if loss1 is not None:
-        #     print(f"SDR | Loss: {loss1} | Time: {end-start} seconds")
+            # We want the matrix A and vector b to have entries from widely different scales
+            for i in range(A.shape[0]):
+                for j in range(A.shape[1]):
+                    if np.random.rand() > 0.5:
+                        A[i,j] /= scale_factor
+                    else:
+                        A[i,j] *= scale_factor
+            
+            for i in range(b.shape[0]):
+                if np.random.rand() > 0.5:
+                    b[i,0] /= scale_factor
+                else:
+                    b[i,0] *= scale_factor
 
-        # solver2 = UnitLstsqSVD(A)
-        # b=b.reshape(-1,)
-        # start = time.time()
-        # loss2,x2 = solver2.solve(b, take_mean=False)
-        # end = time.time()
-        # if loss2 is not None:
-        #     print(f"SVD | Loss: {loss2} | Time: {end-start} seconds")
-        #     print(x2)
 
-        # solver3 = UnitLstsqKKT(A)
-        # b = b.reshape(-1, 1)
-        # start = time.time()
-        # try:
-        #     loss3, x3 = solver3.solve(b, take_mean=False)
-        #     end = time.time()
-        #     print(f"KKT | Loss {loss3} | Time: {end-start} seconds")
-        # except:
-        #     print("KKT failed")
-       
+            
 
-        # solver4 = UnitLstsqKKT_brent(A)
-        # b = b.reshape(-1, 1)
-        # start = time.time()
-        # try:
-        #     loss4, x4 = solver4.solve(b, take_mean=False)
-        #     end = time.time()
-        #     print(f"KKT-Brent | Loss {loss4} | Time: {end - start} seconds")
-        # except:
-        #     print("KKT-Brent failed")
+            record = {}
 
-        with open(file_name,'rb') as file:
-            problem = pickle.load(file)
-        A = problem['X']
-        b = problem['b']
 
-        record = {}
-
-    
-        solver5 = UnitLstsqLARS(A)
-        b = b.reshape(-1,)
-        start = time.time()
-        try: 
-            loss5, x5 = solver5.solve(b, take_mean=False)
+            solver7 = UnitL1NormLeastSquare_CVX(A)
+            start = time.time()
+            loss7, x7 = solver7.solve(b, take_mean=False)
             end = time.time()
-            print(f"LARS | Loss {loss5} | Time: {end - start} seconds")
-            print(x5)
-        except:
-            loss5 = np.nan
-            print("LARS failed")
-        record['lars_loss'] = loss5
-        record['lars_time'] = end - start
+            if loss7 is not None:
+                print(f"CVX | Loss: {loss7} | Time: {end - start} seconds")
+                print(x7)
+            else:
+                loss7 = np.nan
+            record['cvx_loss'] = loss7
+            record['cvx_time'] = end - start
 
 
-        solver6 = UnitLstsqMD(A)
-        b = b.reshape(-1,)
-        start = time.time()
-        try: 
-            loss6, x6 = solver6.solve(b, take_mean=False)
-            end = time.time()
-            print(f"MD | Loss {loss6} | Time: {end - start} seconds")
-            print(x6)
-        except:
-            loss6 = np.nan
-            print("MD failed")
-        record['md_loss'] = loss6
-        record['md_time'] = end - start
-
-        solver7 = UnitL1NormLeastSquare_CVX(A)
-        start = time.time()
-        loss7, x7 = solver7.solve(b, take_mean=False)
-        end = time.time()
-        if loss7 is not None:
-            print(f"CVX | Loss: {loss7} | Time: {end - start} seconds")
-            print(x7)
-        else:
-            loss7 = np.nan
-        record['cvx_loss'] = loss7
-        record['cvx_time'] = end - start
-
-        solver8 = UnitL1NormLeastSquare_CVX_heuristic(A)
-        start = time.time()
-        loss8, x8 = solver8.solve(b, take_mean=False)
-        end = time.time()
-        if loss8 is not None:
-            print(f"CVX-heuristic | Loss: {loss8} | Time: {end - start} seconds")
-            print(x8)
-        else:
-            loss8 = np.nan
-        record['cvx_heur_loss'] = loss8
-        record['cvx_heur_time'] = end - start
-
-        solver9 = UnitLstsqHeuristicFull(A)
-        b = b.reshape(-1,1)
-        start = time.time()
-        loss9, x9 = solver9.solve(b, take_mean=False)
-        end = time.time()
-        if loss9 is not None:
-            print(f"heuristic | Loss: {loss9} | Time: {end - start} seconds")
-            print(x9)
-        else:
-            loss9 = np.nan
-        record['heur_loss'] = loss9
-        record['heur_time'] = end - start
-
-        solver10 = UnitLstsqLARSImproved(A)
-        b = b.reshape(-1,)
-        start = time.time()
-        try: 
-            loss10, x10 = solver10.solve(b, take_mean=False)
-            end = time.time()
-            print(f"LARS_Improved | Loss {loss10} | Time: {end - start} seconds")
-            print(x10)
-        except:
-            loss10 = np.nan
-            print("LARS improved failed")
-        record['lars_imp_loss'] = loss10
-        record['lars_imp_time'] = end - start
+            solver10 = UnitLstsqLARSImproved(A)
+            b = b.reshape(-1,)
+            start = time.time()
+            try: 
+                loss10, x10 = solver10.solve(b, take_mean=False)
+                end = time.time()
+                print(f"LARS_Improved | Loss {loss10} | Time: {end - start} seconds")
+                print(x10)
+            except:
+                loss10 = np.nan
+                print("LARS improved failed")
+            record['lars_imp_loss'] = loss10
+            record['lars_imp_time'] = end - start
 
 
-        b = b.reshape(-1,1)
-        standard_least_square = np.linalg.inv(np.transpose(A) @ A) @ np.transpose(A) @ b
-        L1_norm = np.sum(np.absolute(standard_least_square))
-        record['L1_norm_lstsq'] = L1_norm
+            b = b.reshape(-1,1)
+            standard_least_square = np.linalg.inv(np.transpose(A) @ A) @ np.transpose(A) @ b
+            L1_norm = np.sum(np.absolute(standard_least_square))
+            record['L1_norm_lstsq'] = L1_norm
 
-        df = df.append(record,ignore_index=True)
+            df = pd.concat([df,pd.DataFrame([record])],ignore_index=True)
 
-    df.to_csv('results/comparison.csv')
+        df.to_csv(f'experiments/results/CoLLie/comparison_n{n}.csv')
     
 
