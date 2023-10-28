@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize, minimize_scalar, brentq
 import cvxpy as cp
 import time
-# import torch
 
 from sklearn.linear_model import lars_path_gram
 from bisect import bisect_left
@@ -12,8 +11,6 @@ import mpmath as mp
 from itertools import product
 import glob
 import pandas as pd
-
-from var_objective.utils.mirror_descent import MirrorDescentSimplex
 
 def ridge(A,b,l):
     n = A.shape[1]
@@ -663,70 +660,70 @@ class UnitLstsqLARSImproved:
 #                 w = module.weight.data
 #                 w.div_(torch.linalg.vector_norm(w, 1).expand_as(w))
         
-class UnitLstsqMD:
-    def __init__(self,A):
-        self.A = A
-        self.A_T = A.T
-        self.gram = self.A_T @ self.A
-        self.m, self.n = A.shape
-        self.orthants = list(product([-1,1],repeat=self.n))
-        self.gram_norm = np.max(np.linalg.norm(self.gram,np.inf,axis=0))
-        self.A_norm = np.max(np.linalg.norm(self.A,2,axis=0))
+# class UnitLstsqMD:
+#     def __init__(self,A):
+#         self.A = A
+#         self.A_T = A.T
+#         self.gram = self.A_T @ self.A
+#         self.m, self.n = A.shape
+#         self.orthants = list(product([-1,1],repeat=self.n))
+#         self.gram_norm = np.max(np.linalg.norm(self.gram,np.inf,axis=0))
+#         self.A_norm = np.max(np.linalg.norm(self.A,2,axis=0))
 
        
 
-    def solve(self,b,take_mean=True):
-        if b is None:
-            b = np.zeros(self.m)
+#     def solve(self,b,take_mean=True):
+#         if b is None:
+#             b = np.zeros(self.m)
 
-        c = np.dot(self.A_T,b)
-        c_inf = np.linalg.norm(c,np.inf)
-        l_constant = 2*(c_inf + self.gram_norm)
+#         c = np.dot(self.A_T,b)
+#         c_inf = np.linalg.norm(c,np.inf)
+#         l_constant = 2*(c_inf + self.gram_norm)
 
-        def glob_f(x):
-            return np.sum(np.power(np.dot(self.A,x)-b,2))
-        def glob_df(x):
-            return 2*(np.dot(self.gram,x)-c)
+#         def glob_f(x):
+#             return np.sum(np.power(np.dot(self.A,x)-b,2))
+#         def glob_df(x):
+#             return 2*(np.dot(self.gram,x)-c)
 
-        f_values = []
-        df_values = []
-        for orth in self.orthants:
-            f_values.append(glob_f(np.array(orth)))
-            df_values.append(glob_df(np.array(orth)))
+#         f_values = []
+#         df_values = []
+#         for orth in self.orthants:
+#             f_values.append(glob_f(np.array(orth)))
+#             df_values.append(glob_df(np.array(orth)))
         
-        max_f_value = np.max(f_values)
-        df_norms = [np.linalg.norm(d,ord=np.inf) for d in df_values]
-        max_df_norm = np.max(df_norms)
+#         max_f_value = np.max(f_values)
+#         df_norms = [np.linalg.norm(d,ord=np.inf) for d in df_values]
+#         max_df_norm = np.max(df_norms)
 
-        sols = []
-        for orth in self.orthants:
+#         sols = []
+#         for orth in self.orthants:
             
-            orth = np.array(orth)
-            def f(x):
-                return np.sum(np.power(np.dot(self.A,x*orth)-b,2))
-            def df(x):
-                return 2*(np.dot(self.gram,x*orth)-c)*orth
-            md = MirrorDescentSimplex(self.n,df)
+#             orth = np.array(orth)
+#             def f(x):
+#                 return np.sum(np.power(np.dot(self.A,x*orth)-b,2))
+#             def df(x):
+#                 return 2*(np.dot(self.gram,x*orth)-c)*orth
+#             md = MirrorDescentSimplex(self.n,df)
             
-            # diameter = self.A_norm ** 2 + 2*c_inf + np.sum(b ** 2) - f(md.x)
-            diameter = max_f_value - f(md.x)
-            sol = md.optimize(20,20/max_df_norm)
-            sols.append(sol*orth)
+#             # diameter = self.A_norm ** 2 + 2*c_inf + np.sum(b ** 2) - f(md.x)
+#             diameter = max_f_value - f(md.x)
+#             sol = md.optimize(20,20/max_df_norm)
+#             sols.append(sol*orth)
         
        
-        losses = [glob_f(sol) for sol in sols]
-        try:
-            index = np.argmin(losses)
-        except:
-            print("Empty list")
-            return (None,None)
-        weights = sols[index]
-        loss = losses[index]
+#         losses = [glob_f(sol) for sol in sols]
+#         try:
+#             index = np.argmin(losses)
+#         except:
+#             print("Empty list")
+#             return (None,None)
+#         weights = sols[index]
+#         loss = losses[index]
 
-        if take_mean:
-            loss /= self.m
+#         if take_mean:
+#             loss /= self.m
         
-        return (loss,weights)
+#         return (loss,weights)
 
 
 class UnitL1NormLeastSquare_CVX:

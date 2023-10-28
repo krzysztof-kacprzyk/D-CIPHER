@@ -1,1 +1,0 @@
-python -m var_objective.run_var_square SLM1Dict 0 1.0 20 0.001 100 PopulationRandom 2spline2Dtrans 5 1 l1 lars-imp --seed 2 --num_samples 1

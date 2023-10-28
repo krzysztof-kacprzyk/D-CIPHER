@@ -735,7 +735,7 @@ class KSDict(PDE):
             raise ValueError("Wrong number of boundary functions")
         initial_cond = boundary_functions[0]
         import scipy.io
-        data = scipy.io.loadmat('var_objective/kuramoto_sivishinky.mat')
+        data = scipy.io.loadmat('experiments/data/kuramoto_sivishinky.mat')
         u = data['uu']
         x = data['x'][:,0]
         t = data['tt'][0,:]
