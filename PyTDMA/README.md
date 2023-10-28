@@ -1,3 +1,8 @@
+This folder is obtained from https://github.com/cpcloud/PyTDMA and adapted to work with the rest of the code.
+
+Below is the original README.md file.
+
+
 # Welcome to PyTDMA
 PyTDMA stands for [Python TriDiagonal Matrix
 Algorithm](http://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm).
