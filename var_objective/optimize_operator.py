@@ -5,7 +5,7 @@ from itertools import product
 from var_objective.grids import EquiPartGrid
 from .differential_operator import LinearOperator
 from .derivative_estimators import all_derivatives, all_derivatives_dict
-from .utils.lstsq_solver import UnitLstsqHeuristicFull, UnitLstsqKKT, UnitLstsqKKT_brent, UnitLstsqLARS, UnitLstsqLARSImproved, UnitLstsqMD, UnitLstsqSDR, UnitLstsqSVD
+from .utils.lstsq_solver import UnitLstsqLARSImproved
 
 import pickle
 class VariationalWeightsFinder:
@@ -70,22 +70,10 @@ class VariationalWeightsFinder:
         self.X = np.reshape(integrals,(-1,self.J))[:,1:]
         m, n = self.X.shape
         self.m = m
-        if optim_engine == 'svd':
-            self.weight_finder = UnitLstsqSVD(self.X)
-        elif optim_engine == 'sdr':
-            self.weight_finder = UnitLstsqSDR(self.X)
-        elif optim_engine == 'kkt':
-            self.weight_finder = UnitLstsqKKT(self.X)
-        elif optim_engine == 'kkt-brent':
-            self.weight_finder = UnitLstsqKKT_brent(self.X)
-        elif optim_engine == 'lars':
-            self.weight_finder = UnitLstsqLARS(self.X)
-        elif optim_engine == 'md':
-            self.weight_finder = UnitLstsqMD(self.X)
-        elif optim_engine == 'l1heur':
-            self.weight_finder = UnitLstsqHeuristicFull(self.X)
-        elif optim_engine == 'lars-imp':
+        if optim_engine == 'lars-imp':
             self.weight_finder = UnitLstsqLARSImproved(self.X)
+        else:
+            raise ValueError("Only lars-imp is supported for now")
 
         self.bs = []
 
@@ -227,22 +215,10 @@ class VariationalWeightsFinderDictionary:
         self.X = np.reshape(integrals,(-1,self.J))
         m, n = self.X.shape
         self.m = m
-        if optim_engine == 'svd':
-            self.weight_finder = UnitLstsqSVD(self.X)
-        elif optim_engine == 'sdr':
-            self.weight_finder = UnitLstsqSDR(self.X)
-        elif optim_engine == 'kkt':
-            self.weight_finder = UnitLstsqKKT(self.X)
-        elif optim_engine == 'kkt-brent':
-            self.weight_finder = UnitLstsqKKT_brent(self.X)
-        elif optim_engine == 'lars':
-            self.weight_finder = UnitLstsqLARS(self.X)
-        elif optim_engine == 'md':
-            self.weight_finder = UnitLstsqMD(self.X)
-        elif optim_engine == 'l1heur':
-            self.weight_finder = UnitLstsqHeuristicFull(self.X)
-        elif optim_engine == 'lars-imp':
+        if optim_engine == 'lars-imp':
             self.weight_finder = UnitLstsqLARSImproved(self.X)
+        else:
+            raise ValueError("Only lars-imp is supported for now")
 
         self.bs = []
 
@@ -370,22 +346,10 @@ class MSEWeightsFinder:
         m, n = self.X.shape
         self.m = m
         
-        if optim_engine == 'svd':
-            self.weight_finder = UnitLstsqSVD(self.X)
-        elif optim_engine == 'sdr':
-            self.weight_finder = UnitLstsqSDR(self.X)
-        elif optim_engine == 'kkt':
-            self.weight_finder = UnitLstsqKKT(self.X)
-        elif optim_engine == 'kkt-brent':
-            self.weight_finder = UnitLstsqKKT_brent(self.X)
-        elif optim_engine == 'lars':
-            self.weight_finder = UnitLstsqLARS(self.X)
-        elif optim_engine == 'md':
-            self.weight_finder = UnitLstsqMD(self.X)
-        elif optim_engine == 'l1heur':
-            self.weight_finder = UnitLstsqHeuristicFull(self.X)
-        elif optim_engine == 'lars-imp':
+        if optim_engine == 'lars-imp':
             self.weight_finder = UnitLstsqLARSImproved(self.X)
+        else:
+            raise ValueError("Only lars-imp is supported for now")
 
 
     def _calculate_loss(self, g_part, weights):
@@ -445,22 +409,10 @@ class MSEWeightsFinderDictionary:
         m, n = self.X.shape
         self.m = m
         
-        if optim_engine == 'svd':
-            self.weight_finder = UnitLstsqSVD(self.X)
-        elif optim_engine == 'sdr':
-            self.weight_finder = UnitLstsqSDR(self.X)
-        elif optim_engine == 'kkt':
-            self.weight_finder = UnitLstsqKKT(self.X)
-        elif optim_engine == 'kkt-brent':
-            self.weight_finder = UnitLstsqKKT_brent(self.X)
-        elif optim_engine == 'lars':
-            self.weight_finder = UnitLstsqLARS(self.X)
-        elif optim_engine == 'md':
-            self.weight_finder = UnitLstsqMD(self.X)
-        elif optim_engine == 'l1heur':
-            self.weight_finder = UnitLstsqHeuristicFull(self.X)
-        elif optim_engine == 'lars-imp':
+        if optim_engine == 'lars-imp':
             self.weight_finder = UnitLstsqLARSImproved(self.X)
+        else:
+            raise ValueError("Only lars-imp is supported for now")
 
 
     def _calculate_loss(self, g_part, weights):

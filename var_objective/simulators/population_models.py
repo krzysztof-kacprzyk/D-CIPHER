@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import animation
 
-from .conditions import get_conditions_set
+from var_objective.conditions import get_conditions_set
 
 class SLM:
     """

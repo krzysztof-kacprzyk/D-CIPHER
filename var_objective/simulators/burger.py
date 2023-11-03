@@ -1,7 +1,7 @@
 import numpy as np
 
 from var_objective.conditions import get_conditions_set
-from .libs import tdma
+from var_objective.libs import tdma
 
 import matplotlib.pyplot as plt
 from matplotlib import animation

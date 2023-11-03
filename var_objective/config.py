@@ -10,11 +10,11 @@ def get_optim_params():
 
     return dic
 
-def get_gp_params():
+def get_gp_params(generations=20):
     dic = {
         'population_size': 15000,
         'function_set':('add', 'sub', 'mul', 'div', 'sin', 'exp','log'),
-        'generations':20,
+        'generations':generations,
         # 'generations':5,
         'parsimony_coefficient': 5e-2,
         'tournament_size': 20,

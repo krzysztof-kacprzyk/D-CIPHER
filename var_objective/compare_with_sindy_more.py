@@ -8,6 +8,7 @@ import pickle
 
 from var_objective.differential_operator import LinearOperator
 from var_objective.utils.gp_utils import gp_to_pysym_no_coef, gp_to_pysym_with_coef
+from var_objective.utils.logging import create_logging_file_names, create_output_dir
 
 from .equations import get_pdes
 from .grids import EquiPartGrid
@@ -170,6 +171,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_samples', type=int, default=1)
     parser.add_argument('--sign_index', type=int, default=1)
     parser.add_argument('--sindy_order', type=int, default=2)
+    parser.add_argument('--exp_name', help='Experiment name', default='new_experiment')
+    parser.add_argument('--generations', type=int, default=20)
 
     args = parser.parse_args()
 
@@ -185,10 +188,12 @@ if __name__ == '__main__':
     observed_grid = EquiPartGrid(widths, args.frequency_per_dim)
     full_grid = EquiPartGrid(widths, args.full_grid_samples)
 
+    output_dir = create_output_dir(args.exp_name, 'all')
+
     dt = datetime.now().strftime("%Y-%m-%dT%H.%M.%S")
-    filename = f"results/compare_with_sindy_{dt}.txt"
-    filename_csv = f"results/compare_with_sindy_{dt}_table.csv"
-    filename_meta = f"results/compare_with_sindy_{dt}_meta.p"
+    filename, filename_csv, filename_meta = create_logging_file_names(output_dir, dt)
+
+    gp_params = get_gp_params(generations=args.generations)
 
     gp_params = get_gp_params()
 

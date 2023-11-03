@@ -1,15 +1,15 @@
 from multiprocessing import Value
 
 from matplotlib import projections
-from var_objective.burger import Burger
+from var_objective.simulators.burger import Burger
 
-from var_objective.flow import get_complex_potential_im, get_complex_potential_re, get_flow_potential_2D, get_flow_stream_2D
-from var_objective.wave_equation import DampedWaveEquationDirichlet1D, WaveEquationDirichlet1D
+from var_objective.simulators.flow import get_complex_potential_im, get_complex_potential_re, get_flow_potential_2D, get_flow_stream_2D
+from var_objective.simulators.wave_equation import DampedWaveEquationDirichlet1D, WaveEquationDirichlet1D
 
-from .coulomb import get_potential_2D, get_potential_3D
+from var_objective.simulators.coulomb import get_potential_2D, get_potential_3D
 from .differential_operator import ED, EFunction, LinearOperator, Partial, proj_0, square_0, proj_1, cubic_0
-from .population_models import SLM
-from .heat_equation import HeatEquationNeumann1D
+from var_objective.simulators.population_models import SLM
+from var_objective.simulators.heat_equation import HeatEquationNeumann1D
 from sympy import Symbol, Function, symbols, sin, exp, pi, lambdify
 from abc import ABC, abstractmethod
 import numpy as np

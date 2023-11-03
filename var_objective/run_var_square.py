@@ -4,9 +4,11 @@ import argparse
 import time
 import pandas as pd
 import pickle
+import os
 
 from var_objective.differential_operator import LinearOperator
 from var_objective.utils.gp_utils import gp_to_pysym_no_coef, gp_to_pysym_with_coef
+from var_objective.utils.logging import create_output_dir, create_logging_file_names
 
 from .equations import get_pdes
 from .grids import EquiPartGrid
@@ -83,7 +85,6 @@ def save_meta(filename_pickle, filename_df, global_seed, arguments, gp_config):
         pickle.dump(meta,file)
 
 
-
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Discover a PDE")
@@ -102,6 +103,8 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num_samples', type=int, default=1)
     parser.add_argument('--warm_start', type=int, default=1)
+    parser.add_argument('--exp_name', help='Experiment name', default='new_experiment')
+    parser.add_argument('--generations', type=int, default=20)
 
     args = parser.parse_args()
 
@@ -117,12 +120,12 @@ if __name__ == '__main__':
     observed_grid = EquiPartGrid(widths, args.frequency_per_dim)
     full_grid = EquiPartGrid(widths, args.full_grid_samples)
 
-    dt = datetime.now().strftime("%Y-%m-%dT%H.%M.%S")
-    filename = f"results/run_var_square_{dt}.txt"
-    filename_csv = f"results/run_var_square_{dt}_table.csv"
-    filename_meta = f"results/run_var_square_{dt}_meta.p"
+    output_dir = create_output_dir(args.exp_name, 'var')
 
-    gp_params = get_gp_params()
+    dt = datetime.now().strftime("%Y-%m-%dT%H.%M.%S")
+    filename, filename_csv, filename_meta = create_logging_file_names(output_dir, dt)
+
+    gp_params = get_gp_params(generations=args.generations)
 
     with open(filename, 'w') as f:
         f.write(f"""
