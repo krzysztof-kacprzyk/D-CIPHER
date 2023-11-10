@@ -1,9 +1,0 @@
-sympy
-numpy
-scipy
-matplotlib
-pandas
-scikit-learn
-Cython
-cvxpy
-cvxopt
