@@ -281,18 +281,18 @@ gplearn config: {gp_params}
                 # TODO: maybe in the future leverage the fact that it is a scalar
         
         target_loss = var_wf._calculate_loss(target_g_part, target_weights)
-        print(f"Loss with target weights and target g_part: {target_loss}")
-        print(f"Target weights: {target_weights}")
+        # print(f"Loss with target weights and target g_part: {target_loss}")
+        # print(f"Target weights: {target_weights}")
 
         best_found_loss, best_found_weights = var_wf.find_weights(target_g_part)
-        print(f"Loss for the best found weights: {best_found_loss}")
-        print(f"Best found weights: {best_found_weights}")
+        # print(f"Loss for the best found weights: {best_found_loss}")
+        # print(f"Best found weights: {best_found_weights}")
 
         if best_found_weights[args.sign_index] < 0:
             best_found_weights *= -1
 
         var_error = np.sqrt(np.mean((best_found_weights - target_weights) ** 2))
-        print(var_error)
+        # print(var_error)
 
         # SINDy methods
 
@@ -349,8 +349,8 @@ gplearn config: {gp_params}
             elif optimizer == 'srr':
                 opt = ps.SSR(alpha=alpha)
 
-            print(type(smo))
-            print(type(pde_lib))
+            # print(type(smo))
+            # print(type(pde_lib))
             if weak:
                 model = ps.SINDy(feature_library=pde_lib, optimizer=opt)
                 model.fit(u, multiple_trajectories=True)
@@ -362,9 +362,9 @@ gplearn config: {gp_params}
             pde_find_weights /= np.linalg.norm(pde_find_weights,1)
             pde_find_target_weights = pdes.get_sindy_weights()[args.equation_number]
             pde_find_target_weights /= np.linalg.norm(pde_find_target_weights,1)
-            print(model.coefficients())
+            # print(model.coefficients())
             pde_find_error = np.sqrt(np.mean((pde_find_weights - pde_find_target_weights) ** 2))
-            print(pde_find_error)
+            # print(pde_find_error)
             return pde_find_error, pde_find_weights
 
         stlsq_strong_error, stlsq_strong_weights = test('sfd','stlsq',weak=False)
@@ -394,52 +394,6 @@ gplearn config: {gp_params}
         trial_end-trial_start)
 
         df.to_csv(filename_csv)
-
-
-        # sfd = SmoothedFiniteDifference(smoother_kws={'window_length': 5})
-
-        # pde_lib = ps.PDELibrary(
-        #     library_functions=library_functions,
-        #     function_names=library_function_names,
-        #     derivative_order=args.sindy_order,
-        #     spatial_grid=x,
-        #     is_uniform=True,
-        # )
-
-        # print('STLSQ model: ')
-        # optimizer = ps.STLSQ(threshold=0, alpha=0.05)
-        # model = ps.SINDy(differentiation_method=sfd,feature_library=pde_lib, optimizer=optimizer)
-        # model.fit(u, t=dt, multiple_trajectories=True)
-        
-        # pde_find_weights = np.insert(np.array(model.coefficients()).reshape(-1),0,1.0)
-        # pde_find_weights /= np.linalg.norm(pde_find_weights,1)
-        # pde_find_target_weights = pdes.get_sindy_weights()[args.equation_number]
-        # pde_find_target_weights /= np.linalg.norm(pde_find_target_weights,1)
-        # model.print()
-        # print(model.coefficients())
-        # pde_find_error = np.sqrt(np.mean((pde_find_weights - pde_find_target_weights) ** 2))
-        # print(pde_find_error)
-        # X, T = np.meshgrid(x, t)
-        # XT = np.asarray([X, T]).T
-        # weak_pde_lib = ps.WeakPDELibrary(library_functions=library_functions,
-        #                             function_names=library_function_names,
-        #                             derivative_order=args.sindy_order,
-        #                             spatiotemporal_grid=XT,
-        #                             is_uniform=True, K=1000,
-        #                             )
-
-        # # Fit a weak form model
-        # optimizer = ps.STLSQ(threshold=0, alpha=0.05)
-        # model = ps.SINDy(feature_library=weak_pde_lib, optimizer=optimizer)
-        # model.fit(u, multiple_trajectories=True)
-        # model.print()
-
-        # weak_sindy_weights = np.insert(np.array(model.coefficients()).reshape(-1),0,1.0)
-        # weak_sindy_weights /= np.linalg.norm(weak_sindy_weights,1)
-        # model.print()
-        # print(model.coefficients())
-        # weak_sindy_error = np.sqrt(np.mean((weak_sindy_weights - pde_find_target_weights) ** 2))
-        # print(weak_sindy_error)
 
 
        

@@ -1,4 +1,4 @@
-# Run all files in experiments/run_scripts/
+# Run all experiments files in experiments/run_scripts/
 
 bash experiments/run_scripts/Figure_2.sh;
 bash experiments/run_scripts/Figure_3.sh;

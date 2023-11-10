@@ -16,7 +16,7 @@ do
     do
         echo "Noise ratio: $noise_ratio"
         
-        nohup python -m var_objective.run_var_square_dict FullFlow2D $eq_number 2.0 20 $noise_ratio 200 SourcesRandom2D 2spline2Dtrans 10 10 l1 lars-imp --seed 2 --num_samples 10 --no_gp --sign_index $sign_index;
+        nohup python -m var_objective.run_var_square_dict FullFlow2D $eq_number 2.0 20 $noise_ratio 200 SourcesRandom2D 2spline2Dtrans 10 10 l1 lars-imp --seed 2 --num_samples 10 --no_gp --sign_index $sign_index --exp_name CauchyRiemann;
     done
 done
 

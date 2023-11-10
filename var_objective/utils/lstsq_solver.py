@@ -1,3 +1,4 @@
+import argparse
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,6 +12,9 @@ import mpmath as mp
 from itertools import product
 import glob
 import pandas as pd
+import os
+
+from tqdm import tqdm
 
 def ridge(A,b,l):
     n = A.shape[1]
@@ -244,6 +248,11 @@ class UnitL1NormLeastSquare_CVX_heuristic:
 
 if __name__ == "__main__":
 
+
+    parser = argparse.ArgumentParser(description="CoLLie")
+    parser.add_argument('--exp_name', help='Experiment name', default='new_experiment')
+
+    args = parser.parse_args()
     np.random.seed(0)
 
     num_tests = 1000
@@ -252,12 +261,14 @@ if __name__ == "__main__":
 
     for n in range(1,8):
 
+        print(f"n = {n}")
+
         df = pd.DataFrame()
 
-        for i in range(num_tests):
+        for i in tqdm(range(num_tests)):
 
-            print("-"*10)
-            print(f"Test {i+1}/{num_tests}")
+            # print("-"*10)
+            # print(f"Test {i+1}/{num_tests}")
 
             A = np.random.normal(0.0,1.0,(m,n))
             b = np.random.normal(0.0,1.0,(m,1))
@@ -288,8 +299,9 @@ if __name__ == "__main__":
             loss7, x7 = solver7.solve(b, take_mean=False)
             end = time.time()
             if loss7 is not None:
-                print(f"CVX | Loss: {loss7} | Time: {end - start} seconds")
-                print(x7)
+                pass
+                # print(f"CVX | Loss: {loss7} | Time: {end - start} seconds")
+                # print(x7)
             else:
                 loss7 = np.nan
             record['cvx_loss'] = loss7
@@ -302,8 +314,8 @@ if __name__ == "__main__":
             try: 
                 loss10, x10 = solver10.solve(b, take_mean=False)
                 end = time.time()
-                print(f"LARS_Improved | Loss {loss10} | Time: {end - start} seconds")
-                print(x10)
+                # print(f"LARS_Improved | Loss {loss10} | Time: {end - start} seconds")
+                # print(x10)
             except:
                 loss10 = np.nan
                 print("LARS improved failed")
@@ -318,6 +330,11 @@ if __name__ == "__main__":
 
             df = pd.concat([df,pd.DataFrame([record])],ignore_index=True)
 
-        df.to_csv(f'experiments/results/CoLLie/comparison_n{n}.csv')
+        # Create output folder if it does not exist
+        output_folder = os.path.join('experiments', 'results', args.exp_name)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+    
+        df.to_csv(f'experiments/results/{args.exp_name}/comparison_n{n}.csv')
     
 
