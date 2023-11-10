@@ -1,4 +1,10 @@
-# Ignore everything in this folder except .gitignore
-*
+# Ignore everything in this folder except .gitignore and KS folder
+/*
+!KS/
 !.gitignore
+
+
+
+
+
 
