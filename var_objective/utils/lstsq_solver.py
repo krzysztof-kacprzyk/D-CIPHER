@@ -270,26 +270,18 @@ if __name__ == "__main__":
             # print("-"*10)
             # print(f"Test {i+1}/{num_tests}")
 
+            # Documented in Appendix D.3
+
             A = np.random.normal(0.0,1.0,(m,n))
-            b = np.random.normal(0.0,1.0,(m,1))
-        
+            z = np.random.rand(n,1) - 0.5
 
-            # We want the matrix A and vector b to have entries from widely different scales
-            for i in range(A.shape[0]):
-                for j in range(A.shape[1]):
-                    if np.random.rand() > 0.5:
-                        A[i,j] /= scale_factor
-                    else:
-                        A[i,j] *= scale_factor
-            
-            for i in range(b.shape[0]):
-                if np.random.rand() > 0.5:
-                    b[i,0] /= scale_factor
-                else:
-                    b[i,0] *= scale_factor
+            # normalize z
+            z = z / np.linalg.norm(z,ord=1)
 
+            l = np.random.rand() * 4 - 1
+            z = z * l
 
-            
+            b = A @ z
 
             record = {}
 
