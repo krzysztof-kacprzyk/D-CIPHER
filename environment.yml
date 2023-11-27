@@ -20,7 +20,6 @@ dependencies:
   - setuptools=65.3.0
   - sympy=1.10.1
   - tqdm=4.66.1
-  - vc=14.2
   - pip:
       - cmake==3.24.1.1
       - derivative==0.4.2
