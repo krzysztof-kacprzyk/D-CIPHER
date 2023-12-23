@@ -131,3 +131,4 @@ dmypy.json
 # Custom:
 experiments/results/*
 run_all_custom.sh
+experiments/analysis/*replicate.ipynb
