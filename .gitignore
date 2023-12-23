@@ -128,4 +128,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Custom:
 experiments/results/*
+run_all_custom.sh
