@@ -132,3 +132,4 @@ dmypy.json
 experiments/results/*
 run_all_custom.sh
 experiments/analysis/*replicate.ipynb
+experiments/analysis/figures/*replicate*
